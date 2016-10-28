@@ -4,12 +4,14 @@
 Python
 
 ## Simulator
-SimPy 3. It is built for simulations where there are many objects being simulated and they interact often. Simulating a network falls under this, so SimPy seems like a good fit.
+SimPy 3. It is built for simulations where there are many objects being simulated and they interact often. Simulating a network falls under this, so SimPy seems like a good fit. It's also allows Process Based Simulation, which is also cool.
 
 ## Classes
 ### Packet
 #### Variables
 1. id: integer
+2. source: Host
+3. destination: Host
 
 ### Data_Packet
 #### Variables
@@ -17,14 +19,12 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 
 ### Ack_Packet
 #### Variables
-1. destination: Device
-2. source: Device
 3. original_packet
 
 ### Routing_Packet
 #### Variables
-1. source: Device
-2. distance: integer
+1. source: Router
+2. distance: number
 	
 ### Device
 #### Variables
@@ -60,7 +60,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 2. queue: [Packet, Packet, ...]
 3. capacity: integer
 4. transmission_delay: number
+5. buffer_size: number
 
 #### Methods
 1. send_data()
-2. drop_packets()
