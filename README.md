@@ -19,7 +19,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 
 ### Ack_Packet
 #### Variables
-3. original_packet
+3. original_packet (not exactly sure how to encode)
 
 ### Routing_Packet
 #### Variables
@@ -32,24 +32,22 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 2. links : [Link, Link, ...]
 
 #### Methods
-1. send_data()
-2. receive_data()
+1. send(Packet): different implementations for Router and Host, but once the correct link is determined, call Link.send();
+2. receive(Packet): different implementations for Router and Host, but depending on the packet, call a handler function.
 
 ### Router -> Extension of Device
 #### Variables
 1. routing_table: { destination: next_hop }
 
 #### Methods	
-1. receive_routing()
-2. send_routing()
+1. handle_routing(Routing_Packet): run the routing algorithm and send a routing packet.
 
 ### Host -> Extension of Device
 #### Variables
 1. window_size: number
 
 #### Methods
-1. send_ack()
-2. receive_ack()
+1. handle_ack(Ack_Packet): handle processing the acknowledgement (still has to be fleshed out).
 
 ### Reno_Host -> Extension of Host
 ### Fast_Host -> Extension of Host
@@ -63,4 +61,4 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 5. buffer_size: number
 
 #### Methods
-1. send_data()
+1. send(): send a packet, taking into out account capacity, the queue, transmission delay, and buffer size.
