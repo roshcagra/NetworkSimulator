@@ -1,59 +1,63 @@
 # NetworkSimulator
 
-Project Meeting 2 (Beer Room)
+## Language
+Python
 
-Event based simulation
+## Simulator
+SimPy 3. It is built for simulations where there are many objects being simulated and they interact often. Simulating a network falls under this, so SimPy seems like a good fit.
 
-Link
-Fields:
-	Hosts : [Host, Host, …]
-	Routers : [Router, Router, ….]
-	Queue of packets
-	Capacity  // Is there max capacity for buffer on links?
-	Transmission delay
-Methods:
-	send_data()
-	drop_packets()
+## Classes
+### Link
+#### Variables
+1. devices : [Device, Device, …]
+2. queue
+3. capacity
+4. transmission_delay
+#### Methods
+1. send_data()
+2. drop_packets()
 	
-Device
-Fields:
-IP
-Links : [Link, Link, ….]
+### Device
+#### Variables
+1. ip
+2. links : [Link, Link, ….]
+#### Methods
+1. send_data()
+2. receive_data()
 
-Methods:
-send_data()
-receive_data()
+### Router -> Extension of Device
+#### Variables
+1. routing_table
+#### Methods	
+1. receive_routing()
+2. send_routing()
 
-Router
-Fields:
-	Routing table
-	
-Methods:	
-	receive_routing()
-	send_routing()
+### Host -> Extension of Device
+#### Variables
+1. References to links that are attached to it
+2. window_size
+#### Methods
+1. send_ack()
+2. receive_ack()
 
-Host
-Fields:
-	References to links that are attached to it
-	Window size
-Methods:
-	send_ack()
-	receive_ack()
-Subclasses:
-	Reno_Host
-	Reno_window_size()
-	Fast_Host
-	Fast_window_size()
+### Reno_Host -> Extension of Host
+### Fast_Host -> Extension of Host
 
-Packet
-Fields:
-ID	// To keep track of which ones were acknowledged
-Subclasses:
-	Data
-		Payload
-	Ack
-		[Destination, Source, original packet]
-	Routing
-		[Root, Distance]
+### Packet
+#### Variables
+1. id
 
+### Data_Packet
+#### Variables
+1. payload
 
+### Ack_Packet
+#### Variables
+1. destination
+2. source
+3. original_packet
+
+### Routing_Packet
+#### Variables
+1. source
+2. distance
