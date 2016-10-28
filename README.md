@@ -13,6 +13,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 2. queue
 3. capacity
 4. transmission_delay
+
 #### Methods
 1. send_data()
 2. drop_packets()
@@ -21,6 +22,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 #### Variables
 1. ip
 2. links : [Link, Link, ….]
+
 #### Methods
 1. send_data()
 2. receive_data()
@@ -28,6 +30,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 ### Router -> Extension of Device
 #### Variables
 1. routing_table
+
 #### Methods	
 1. receive_routing()
 2. send_routing()
@@ -36,6 +39,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 #### Variables
 1. References to links that are attached to it
 2. window_size
+
 #### Methods
 1. send_ack()
 2. receive_ack()
