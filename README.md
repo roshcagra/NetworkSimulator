@@ -25,17 +25,6 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 #### Variables
 1. source: Device
 2. distance: integer
-
-### Link
-#### Variables
-1. devices : [Device, Device, ...]
-2. queue: [Packet, Packet, ...]
-3. capacity: integer
-4. transmission_delay: number
-
-#### Methods
-1. send_data()
-2. drop_packets()
 	
 ### Device
 #### Variables
@@ -64,3 +53,14 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 
 ### Reno_Host -> Extension of Host
 ### Fast_Host -> Extension of Host
+
+### Link
+#### Variables
+1. devices : [Device, Device, ...]
+2. queue: [Packet, Packet, ...]
+3. capacity: integer
+4. transmission_delay: number
+
+#### Methods
+1. send_data()
+2. drop_packets()
