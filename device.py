@@ -1,33 +1,50 @@
-class Device:	
-    
+from packet import DataPacket
+from packet import AckPacket
+
+class Device:
     def __init__(self, ip):
         self.ip = ip
         self.links = []
 
     def add_link(self, link):
-    	self.link.append = link;
-
-    def send(self, data, destination):
-        self.link.send(data, destination)
-
-    def receive(self, data):
-        self.link[link_id].receive(data)
-
+        self.links.append = link
 
 class Host(Device):
-
-    def __init__(self, ip, W):
+    def __init__(self, ip, W, env):
         Device.__init__(self, ip)
         self.window_size = W
+        self.unacknowledged_packets = 0
+        self.env = env
+        self.send_data_reactivate = env.event()
+        self.next_packet_id = 0
 
-    def handle_ack(self, packet):
-    	''' Handle processing the acknowledgement '''
+    def update_packet_id(self):
+        self.next_packet_id += 1
 
-class Router(Device):
+    def generate_packets(self, destination):
+        packets = []
+        for _ in range(0, self.window_size):
+            packets.append(DataPacket(self.next_packet_id, self, destination))
+            self.update_packet_id()
+        return packets
 
-    def __init__(self, ip):
-        Device.__init__(self, ip)
-        self.routing_table = None
+    def sendData(self, data, destination):
+        currData = data
+        while currData > 0:
+            packets = self.generate_packets(destination)
+            self.links[0].send(packets, destination)
+            self.unacknowledged_packets += self.window_size
+            currData -= self.window_size * DataPacket.size
+            yield self.send_data_reactivate
 
-    def handle_routing(self, packet):
-    	''' Do MST and generate table '''
+    def sendAck(self, packet):
+        self.links[0].send(AckPacket(packet.id, self, packet.source), packet.source)
+
+    def receive(self, packet):
+        if isinstance(packet, AckPacket):
+            self.unacknowledged_packets -= 1
+            if self.unacknowledged_packets < self.window_size:
+                self.send_data_reactivate.succeed()
+                self.send_data_reactivate = self.env.event()
+        elif isinstance(packet, DataPacket):
+            self.sendAck(packet)

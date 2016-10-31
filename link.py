@@ -1,12 +1,3 @@
-# Units:
-# 	Time: ms
-# 	Data: bits
-
-class LinkPacket:
-	def __init__(self, send_right, packet):
-		self.send_right = send_right # True for send right, False for send left
-		self.packet = packet # packet object
-
 class Link:
     def __init__(self, left, right, link_rate, link_delay, max_buffer_size):
         self.left = left # left device
@@ -20,22 +11,17 @@ class Link:
         # todo check input types
         # assert that left and right are 'devices'
         # assert that capacity is a number
-        # assert that 
+        # assert that
 
 
     # Loops through queue and sums up packet sizes
     def get_buffer_size():
-    	pass
+        pass
 
 
     def send_packet():
-    	pass
+        pass
     	# pops off top of buffer, sends to either left or right
 
     def recieve_packet():
-    	pass
-
-
-
-
-    	
+        pass
