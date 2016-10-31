@@ -57,7 +57,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 1. devices : [Device, Device, ...]
 2. queue: [Packet, Packet, ...]
 3. capacity: integer
-4. transmission_delay: number
+4. transmission_delay: number # doesnt capacity = transmission delay?!
 5. buffer_size: number
 
 #### Methods
