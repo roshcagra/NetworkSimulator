@@ -40,7 +40,7 @@ class Host(Device):
         env.process(self.links[0].send_ack(AckPacket(packet.id, self, packet.source), packet.source))
 
     def receive(self, packet, env):
-        print('Received packet: ', packet)
+        print('Received packet: ', packet, ' at ', env.now)
         if isinstance(packet, AckPacket):
             self.unacknowledged_packets -= 1
             if self.unacknowledged_packets < self.window_size:
