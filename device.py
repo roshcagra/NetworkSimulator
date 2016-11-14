@@ -10,34 +10,35 @@ class Device:
         self.links.append(link)
 
 class Host(Device):
-    def __init__(self, ip, W, env):
+    def __init__(self, ip):
         Device.__init__(self, ip)
-        self.window_size = W
-        self.unacknowledged_packets = 0
-        self.send_data_reactivate = env.event()
-        self.next_packet_id = 0
+        self.send_data_reactivate = {}
+        self.unacknowledged_packets = {}
+        self.window_size = {}
 
-    def update_packet_id(self):
-        self.next_packet_id += 1
-
-    def generate_packets(self, destination):
+    def generate_packets(self, destination, window_size, first_packet_id):
         packets = []
-        for _ in range(0, self.window_size):
-            packets.append(DataPacket(self.next_packet_id, self.ip, destination))
-            self.update_packet_id()
-        return (self.window_size, packets)
+        for i in range(first_packet_id, first_packet_id + window_size):
+            packets.append(DataPacket(i, self.ip, destination))
+        return packets
 
     def sendData(self, data, destination, env):
+        self.window_size[destination] = 10
+        self.unacknowledged_packets[destination] = 0
+        self.send_data_reactivate[destination] = env.event()
+        next_packet_id = 0
+
         currData = data
         while currData > 0:
-            packet_tuple = self.generate_packets(destination)
-            self.unacknowledged_packets += self.window_size
-            currData -= self.window_size * DataPacket.size
-            env.process(self.links[0].send_data(packet_tuple=packet_tuple, destination=destination, env=env))
-            yield self.send_data_reactivate
+            packets = self.generate_packets(destination, self.window_size[destination], next_packet_id)
+            next_packet_id += self.window_size[destination]
+            self.unacknowledged_packets[destination] += self.window_size[destination]
+            currData -= self.window_size[destination] * DataPacket.size
+            env.process(self.links[0].send_data(packets=packets, destination=destination, env=env))
+            yield self.send_data_reactivate[destination]
 
     def sendAck(self, packet, env):
-        env.process(self.links[0].send_ack(AckPacket(packet.id, self, packet.source), packet.source, env))
+        env.process(self.links[0].send_ack(AckPacket(packet.id, self.ip, packet.source), packet.source, env))
 
     def receive_data(self, packet, env):
         print('Received data packet: ', packet.id, ' at ', env.now)
@@ -45,7 +46,8 @@ class Host(Device):
 
     def receive_ack(self, packet, env):
         print('Received ack packet: ', packet.id, ' at ', env.now)
-        self.unacknowledged_packets -= 1
-        if self.unacknowledged_packets < self.window_size:
-            self.send_data_reactivate.succeed()
-            self.send_data_reactivate = env.event()
+        destination = packet.source
+        self.unacknowledged_packets[destination] -= 1
+        if self.unacknowledged_packets[destination] < self.window_size[destination]:
+            self.send_data_reactivate[destination].succeed()
+            self.send_data_reactivate[destination] = env.event()

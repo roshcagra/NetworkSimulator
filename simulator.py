@@ -4,8 +4,8 @@ from link import Link
 
 env = simpy.Environment()
 
-data1 = 1024 * 10
-devices = [Host(env=env, ip=0, W=10), Host(env=env, ip=1, W=10)]
+data1 = 20 * (10 ** 6)
+devices = [Host(ip=0), Host(ip=1)]
 links = [Link(link_rate=(2.578 * 10 ** 11), link_delay=10, max_buffer_size=64000, env=env)]
 
 devices[0].add_link(links[0])
