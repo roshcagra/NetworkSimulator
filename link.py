@@ -27,6 +27,11 @@ class Link:
         yield env.timeout(self.link_delay)
         self.devices[destination].receive_data(packet, env)
 
+    def send_ack_packet(self, packet, destination, env):
+        self.queue.put(AckPacket.size)
+        yield env.timeout(self.link_delay)
+        self.devices[destination].receive_ack(packet, env)
+
     # Loops through queue and sums up packet sizes
     def send_data(self, packet_tuple, destination, env):
         packet_num = packet_tuple[0]
@@ -44,5 +49,5 @@ class Link:
         with self.send.request() as req:  # Generate a request event
             yield req
             for _ in range(0, num):
-                self.devices[destination].receive_ack(packet, env)
-                self.queue.put(AckPacket.size)
+                yield env.timeout(packet.size/self.link_rate * 1000)
+                env.process(self.send_ack_packet(packet, destination, env))
