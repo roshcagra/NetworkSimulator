@@ -19,12 +19,6 @@ class Host(Device):
         self.timeout = {}
         self.slow_start = {}
 
-    def generate_packets(self, destination, window_size, first_packet_id, env):
-        packets = []
-        for i in range(first_packet_id, first_packet_id + window_size):
-            packets.append(DataPacket(p_id=i, source=self.ip, destination=destination, time=env.now))
-        return packets
-
     def send_data(self, packet, destination, env):
         env.process(self.links[0].send_packet(packet=packet, destination=destination, env=env))
 
@@ -40,12 +34,11 @@ class Host(Device):
         while currData > 0:
             floored_window = math.floor(self.window_size[destination])
             curr_size = floored_window - self.unacknowledged_packets[destination]
-            packets = self.generate_packets(destination, curr_size, next_packet_id, env)
-            next_packet_id += curr_size
             self.unacknowledged_packets[destination] = floored_window
             currData -= curr_size * DataPacket.size
-            for packet in packets:
-                self.send_data(packet, destination, env)
+            for _ in range(0, curr_size):
+                self.send_data(DataPacket(p_id=next_packet_id, source=self.ip, destination=destination, time=env.now), destination, env)
+                next_packet_id += 1
             yield self.flow_reactivate[destination]
 
     def send_ack(self, packet, env):
