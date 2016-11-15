@@ -30,7 +30,7 @@ class Host(Device):
         self.unacknowledged_packets[destination] = 0
         self.send_data_reactivate[destination] = env.event()
         self.timeout[destination] = None
-        self.slow_start[destination] = True
+        self.slow_start[destination] = (True, float("inf"))
         next_packet_id = 0
 
         currData = data
@@ -71,14 +71,24 @@ class Host(Device):
         print('Received ack packet: ', packet.id, ' at ', env.now)
         data_packet = packet.data
         destination = data_packet.destination
-        if self.slow_start[destination]:
+        if self.slow_start[destination][0]:
             if self.handle_timeout(data_packet, env.now, destination):
-                self.slow_start[destination] = False
+                print('Timeout during Slow Start, resetting')
+                self.slow_start[destination] = (True, self.window_size[destination] / 2)
+                self.window_size[destination] = 1
+            elif self.window_size[destination] > self.slow_start[destination][1]:
+                print('Entering Congestion Control')
+                self.slow_start[destination] = (False,float("inf"))
                 self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
             else:
                 self.window_size[destination] += 1
         else:
-            self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
+            if self.handle_timeout(data_packet, env.now, destination):
+                print('Timeout during Congestion Control, beginning Slow Start')
+                self.slow_start[destination] = (True, self.window_size[destination] / 2)
+                self.window_size[destination] = 1
+            else:
+                self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
         self.unacknowledged_packets[destination] -= 1
         if self.unacknowledged_packets[destination] < self.window_size[destination]:
             self.send_data_reactivate[destination].succeed()
