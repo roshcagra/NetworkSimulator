@@ -37,7 +37,8 @@ class Host(Device):
             self.unacknowledged_packets[destination] = floored_window
             currData -= curr_size * DataPacket.size
             for _ in range(0, curr_size):
-                self.send_data(DataPacket(p_id=next_packet_id, source=self.ip, destination=destination, time=env.now), destination, env)
+                new_packet = DataPacket(p_id=next_packet_id, source=self.ip, destination=destination, time=env.now)
+                self.send_data(new_packet, destination, env)
                 next_packet_id += 1
             yield self.flow_reactivate[destination]
 
