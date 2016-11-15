@@ -16,10 +16,10 @@ class Host(Device):
         self.unacknowledged_packets = {}
         self.window_size = {}
 
-    def generate_packets(self, destination, window_size, first_packet_id):
+    def generate_packets(self, destination, window_size, first_packet_id, env):
         packets = []
         for i in range(first_packet_id, first_packet_id + window_size):
-            packets.append(DataPacket(i, self.ip, destination))
+            packets.append(DataPacket(p_id=i, source=self.ip, destination=destination, time=env.now))
         return packets
 
     def send_data(self, data, destination, env):
@@ -31,7 +31,7 @@ class Host(Device):
         currData = data
         while currData > 0:
             curr_size = self.window_size[destination] - self.unacknowledged_packets[destination]
-            packets = self.generate_packets(destination, curr_size, next_packet_id)
+            packets = self.generate_packets(destination, curr_size, next_packet_id, env)
             next_packet_id += curr_size
             self.unacknowledged_packets[destination] = self.window_size[destination]
             currData -= curr_size * DataPacket.size
@@ -39,7 +39,7 @@ class Host(Device):
             yield self.send_data_reactivate[destination]
 
     def send_ack(self, packet, env):
-        env.process(self.links[0].send_ack(AckPacket(packet.id, self.ip, packet.source), packet.source, env))
+        env.process(self.links[0].send_ack(AckPacket(packet.id, self.ip, packet.source, packet), packet.source, env))
 
     def receive_data(self, packet, env):
         print('Received data packet: ', packet.id, ' at ', env.now)
@@ -47,7 +47,7 @@ class Host(Device):
 
     def receive_ack(self, packet, env):
         print('Received ack packet: ', packet.id, ' at ', env.now)
-        destination = packet.source
+        destination = packet.data.destination
         self.unacknowledged_packets[destination] -= 1
         self.window_size[destination] += 1
         if self.unacknowledged_packets[destination] < self.window_size[destination]:
