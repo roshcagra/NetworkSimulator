@@ -22,32 +22,34 @@ class Host(Device):
             packets.append(DataPacket(i, self.ip, destination))
         return packets
 
-    def sendData(self, data, destination, env):
-        self.window_size[destination] = 10
+    def send_data(self, data, destination, env):
+        self.window_size[destination] = 1
         self.unacknowledged_packets[destination] = 0
         self.send_data_reactivate[destination] = env.event()
         next_packet_id = 0
 
         currData = data
         while currData > 0:
-            packets = self.generate_packets(destination, self.window_size[destination], next_packet_id)
-            next_packet_id += self.window_size[destination]
-            self.unacknowledged_packets[destination] += self.window_size[destination]
-            currData -= self.window_size[destination] * DataPacket.size
+            curr_size = self.window_size[destination] - self.unacknowledged_packets[destination]
+            packets = self.generate_packets(destination, curr_size, next_packet_id)
+            next_packet_id += curr_size
+            self.unacknowledged_packets[destination] = self.window_size[destination]
+            currData -= curr_size * DataPacket.size
             env.process(self.links[0].send_data(packets=packets, destination=destination, env=env))
             yield self.send_data_reactivate[destination]
 
-    def sendAck(self, packet, env):
+    def send_ack(self, packet, env):
         env.process(self.links[0].send_ack(AckPacket(packet.id, self.ip, packet.source), packet.source, env))
 
     def receive_data(self, packet, env):
         print('Received data packet: ', packet.id, ' at ', env.now)
-        self.sendAck(packet, env)
+        self.send_ack(packet, env)
 
     def receive_ack(self, packet, env):
         print('Received ack packet: ', packet.id, ' at ', env.now)
         destination = packet.source
         self.unacknowledged_packets[destination] -= 1
+        self.window_size[destination] += 1
         if self.unacknowledged_packets[destination] < self.window_size[destination]:
             self.send_data_reactivate[destination].succeed()
             self.send_data_reactivate[destination] = env.event()
