@@ -26,7 +26,7 @@ class Host(Device):
         return packets
 
     def send_data(self, packet, destination, env):
-        env.process(self.links[0].send_data(packet=packet, destination=destination, env=env))
+        env.process(self.links[0].send_packet(packet=packet, destination=destination, env=env))
 
     def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
@@ -45,11 +45,11 @@ class Host(Device):
             self.unacknowledged_packets[destination] = floored_window
             currData -= curr_size * DataPacket.size
             for packet in packets:
-                env.process(self.send_data(packet, destination, env))
+                self.send_data(packet, destination, env)
             yield self.flow_reactivate[destination]
 
     def send_ack(self, packet, env):
-        env.process(self.links[0].send_ack(AckPacket(packet.id, self.ip, packet.source, packet), packet.source, env))
+        env.process(self.links[0].send_packet(AckPacket(packet.id, self.ip, packet.source, packet), packet.source, env))
 
     def receive_data(self, packet, env):
         print('Received data packet: ', packet.id, ' at ', env.now)
