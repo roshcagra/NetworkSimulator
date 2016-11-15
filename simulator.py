@@ -16,7 +16,7 @@ links[0].add_device(devices[1])
 
 def flow(data, start, source, destination, sim_env):
     yield sim_env.timeout(start)
-    sim_env.process(devices[source].send_data(data=data, destination=destination, env=sim_env))
+    sim_env.process(devices[source].start_flow(data=data, destination=destination, env=sim_env))
 
 p = env.process(flow(data1, 1000, 0, 1, env))
 env.run()

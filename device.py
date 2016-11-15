@@ -13,7 +13,7 @@ class Device:
 class Host(Device):
     def __init__(self, ip):
         Device.__init__(self, ip)
-        self.send_data_reactivate = {}
+        self.flow_reactivate = {}
         self.unacknowledged_packets = {}
         self.window_size = {}
         self.timeout = {}
@@ -25,10 +25,13 @@ class Host(Device):
             packets.append(DataPacket(p_id=i, source=self.ip, destination=destination, time=env.now))
         return packets
 
-    def send_data(self, data, destination, env):
+    def send_data(self, packet, destination, env):
+        env.process(self.links[0].send_data(packet=packet, destination=destination, env=env))
+
+    def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
         self.unacknowledged_packets[destination] = 0
-        self.send_data_reactivate[destination] = env.event()
+        self.flow_reactivate[destination] = env.event()
         self.timeout[destination] = None
         self.slow_start[destination] = (True, float("inf"))
         next_packet_id = 0
@@ -41,8 +44,9 @@ class Host(Device):
             next_packet_id += curr_size
             self.unacknowledged_packets[destination] = floored_window
             currData -= curr_size * DataPacket.size
-            env.process(self.links[0].send_data(packets=packets, destination=destination, env=env))
-            yield self.send_data_reactivate[destination]
+            for packet in packets:
+                env.process(self.send_data(packet, destination, env))
+            yield self.flow_reactivate[destination]
 
     def send_ack(self, packet, env):
         env.process(self.links[0].send_ack(AckPacket(packet.id, self.ip, packet.source, packet), packet.source, env))
@@ -78,7 +82,7 @@ class Host(Device):
                 self.window_size[destination] = 1
             elif self.window_size[destination] > self.slow_start[destination][1]:
                 print('Entering Congestion Control')
-                self.slow_start[destination] = (False,float("inf"))
+                self.slow_start[destination] = (False, float("inf"))
                 self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
             else:
                 self.window_size[destination] += 1
@@ -91,5 +95,5 @@ class Host(Device):
                 self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
         self.unacknowledged_packets[destination] -= 1
         if self.unacknowledged_packets[destination] < self.window_size[destination]:
-            self.send_data_reactivate[destination].succeed()
-            self.send_data_reactivate[destination] = env.event()
+            self.flow_reactivate[destination].succeed()
+            self.flow_reactivate[destination] = env.event()

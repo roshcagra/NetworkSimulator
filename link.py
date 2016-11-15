@@ -33,16 +33,14 @@ class Link:
         yield env.timeout(self.link_delay)
         self.devices[destination].receive_ack(packet, env)
 
-    def send_data(self, packets, destination, env):
-        packet_num = len(packets)
-        num = self.get_queue(packet_num, DataPacket.size)
+    def send_data(self, packet, destination, env):
+        num = self.get_queue(1, DataPacket.size)
         with self.send.request() as req:  # Generate a request event
             yield req
             if self.last_dest[0] != destination and self.last_dest[0] != -1:
                 next_time = self.last_dest[1]
                 yield env.timeout(next_time - env.now)
-            for i in range(0, num):
-                packet = packets[i]
+            for _ in range(0, num):
                 print('Sending data packet: ', packet.id, ' at ', env.now)
                 yield env.timeout(packet.size/self.link_rate * 1000)
                 env.process(self.send_data_packet(packet, destination, env))
