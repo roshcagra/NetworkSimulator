@@ -5,7 +5,6 @@ from packet import AckPacket
 class Link:
     def __init__(self, link_rate, link_delay, max_buffer_size, env):
         self.devices = {}
-        self.buffer = [] # the buffer of packets. holds LinkPacket objects. a queue
         self.link_rate = link_rate # aka capacity/transmission delay
         self.link_delay = link_delay # propogation delay
         self.send = simpy.Resource(env, capacity=1)
