@@ -65,7 +65,7 @@ class Host(Device):
             if packet_id not in self.received[packet_source]:
                 self.received[packet_source].append(packet_id)
                 self.received[packet_source].sort()
-        self.send_ack(packet, env)
+                self.send_ack(packet, env)
 
     def receive_ack(self, packet, env):
         packed_id = packet.id
