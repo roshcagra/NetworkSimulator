@@ -52,8 +52,16 @@ class Host(Device):
                 next_packet_id += 1
             yield self.flow_reactivate[destination]
 
-    def send_ack(self, packet, env):
-        env.process(self.links[0].send_packet(AckPacket(packet.id, self.ip, packet.source), packet.source, env))
+    def send_ack(self, packet_id, source, env):
+        env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), source, env))
+
+    def get_ack_id(self, source):
+        last_packet_id = 0
+        for i in self.received[source]:
+            if i > last_packet_id:
+                return last_packet_id
+            last_packet_id = i + 1
+        return last_packet_id
 
     def receive_data(self, packet, env):
         packet_id = packet.id
@@ -61,28 +69,31 @@ class Host(Device):
         print('Received data packet: ', packet_id, ' at ', env.now)
         if packet_source not in self.received:
             self.received[packet_source] = [packet_id]
+        elif packet_id in self.received[packet_source]:
+            return
         else:
-            if packet_id not in self.received[packet_source]:
-                self.received[packet_source].append(packet_id)
-                self.received[packet_source].sort()
-                self.send_ack(packet, env)
+            self.received[packet_source].append(packet_id)
+            self.received[packet_source].sort()
+        ack_id = self.get_ack_id(packet_source)
+        self.send_ack(ack_id, packet_source, env)
 
     def receive_ack(self, packet, env):
-        packed_id = packet.id
-        print('Received ack packet: ', packed_id, ' at ', env.now)
+        packet_id = packet.id
+        print('Received ack packet: ', packet_id, ' at ', env.now)
         destination = packet.source
-        last_recieved = self.last_acknowledged[destination][0]
-        last_received_count = self.last_acknowledged[destination][1]
-        if last_recieved >= packed_id:
-            if last_received_count == 3:
+        last_acknowledged = self.last_acknowledged[destination][0]
+        last_acknowledged_count = self.last_acknowledged[destination][1]
+        if packet_id <= last_acknowledged:
+            self.last_acknowledged[destination] = (last_acknowledged, last_acknowledged_count + 1)
+            if last_acknowledged_count >= 3:
                 print('Packet Loss Detected. Retransmitting and starting Slow Start Procedure')
-                missing_packet = DataPacket(p_id=packed_id, source=self.ip, destination=destination)
-                env.process(self.send_data(missing_packet, destination, env))
-                self.slow_start[destination] = (True, aws)
+                missing_packet = DataPacket(p_id=packet_id, source=self.ip, destination=destination)
+                self.slow_start[destination] = (True, self.window_size[destination]/2)
                 self.window_size[destination] = 1
-            self.last_acknowledged[destination] = (last_recieved, last_received_count + 1)
+                self.send_data(missing_packet, destination, env)
+                return
         else:
-            self.last_acknowledged[destination] = (packed_id, 1)
+            self.last_acknowledged[destination] = (packet_id, 1)
             if self.slow_start[destination][0]:
                 self.window_size[destination] += 1
                 if self.window_size[destination] > self.slow_start[destination][1]:
