@@ -1,6 +1,7 @@
 import math
 from packet import DataPacket
 from packet import AckPacket
+from graphing import Graph
 
 class Device:
     def __init__(self, ip):
@@ -18,6 +19,7 @@ class Host(Device):
         self.window_size = {}
         self.timeout = {}
         self.slow_start = {}
+        self.graph_wsize = Graph("Window Size")
 
     def send_data(self, packet, destination, env):
         env.process(self.links[0].send_packet(packet=packet, destination=destination, env=env))
@@ -87,6 +89,10 @@ class Host(Device):
                 self.window_size[destination] = 1
             else:
                 self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
+
+        # Update graph
+        self.graph_wsize.add_point(env.now, self.window_size[destination])
+
         self.unacknowledged_packets[destination] -= 1
         if self.unacknowledged_packets[destination] < self.window_size[destination]:
             self.flow_reactivate[destination].succeed()
