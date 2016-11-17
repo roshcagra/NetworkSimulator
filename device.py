@@ -32,7 +32,7 @@ class Host(Device):
 
         currData = data
         while currData > 0:
-            floored_window = math.floor(self.window_size[destination])
+            floored_window = int(math.floor(self.window_size[destination]))
             curr_size = floored_window - self.unacknowledged_packets[destination]
             self.unacknowledged_packets[destination] = floored_window
             currData -= curr_size * DataPacket.size
