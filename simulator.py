@@ -21,11 +21,11 @@ def flow(data, start, source, destination, sim_env):
 p = env.process(flow(data1, 1000, 0, 1, env))
 env.run()
 
-for device in devices:
-    device_name = "Device " + str(device.ip)
-    device.graph_wsize.set_name(device_name)
-    device.graph_wsize.plot()
-    for l in range(0, len(device.links)):
-        link = device.links[l]
-        link.graph_buffocc.set_name(device_name + " " + "Link " + str(l))
-        link.graph_buffocc.plot()
+# for device in devices:
+#     device_name = "Device " + str(device.ip)
+#     device.graph_wsize.set_name(device_name)
+#     device.graph_wsize.plot()
+#     for l in range(0, len(device.links)):
+#         link = device.links[l]
+#         link.graph_buffocc.set_name(device_name + " " + "Link " + str(l))
+#         link.graph_buffocc.plot()

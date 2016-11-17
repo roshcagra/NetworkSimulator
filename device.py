@@ -1,4 +1,5 @@
 import math
+import simpy
 from packet import DataPacket
 from packet import AckPacket
 from graphing import Graph
@@ -43,7 +44,15 @@ class Host(Device):
 
         self.received = {}
 
-    def send_data(self, packet, env):
+    def timeout(self, env):
+        try:
+            yield env.timeout(1)
+        except simpy.Interrupt as i:
+            print('Received', i)
+
+    def send_data(self, p_id, destination, env):
+        waiting = env.process(self.timeout(env))
+        packet = DataPacket(p_id=p_id, source=self.ip, destination=destination, on_receive=waiting)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
     def start_flow(self, data, destination, env):
@@ -62,8 +71,7 @@ class Host(Device):
             self.unacknowledged_packets[destination] = floored_window
             curr_data -= curr_size * DataPacket.size
             for _ in range(0, curr_size):
-                new_packet = DataPacket(p_id=next_packet_id, source=self.ip, destination=destination)
-                self.send_data(new_packet, env)
+                self.send_data(next_packet_id, destination, env)
                 next_packet_id += 1
             yield self.flow_reactivate[destination]
 
@@ -102,10 +110,9 @@ class Host(Device):
             self.last_acknowledged[destination] = (last_acknowledged, last_acknowledged_count + 1)
             if last_acknowledged_count == 3:
                 print('Packet Loss Detected. Retransmitting and starting Slow Start Procedure')
-                missing_packet = DataPacket(p_id=packet_id, source=self.ip, destination=destination)
                 self.slow_start[destination] = (True, self.window_size[destination]/2)
                 self.window_size[destination] = 1
-                self.send_data(missing_packet, env)
+                self.send_data(packet_id, destination, env)
                 return
         else:
             self.last_acknowledged[destination] = (packet_id, 1)
