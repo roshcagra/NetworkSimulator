@@ -4,7 +4,7 @@ from packet import AckPacket
 
 class Link:
     def __init__(self, link_rate, link_delay, max_buffer_size, env):
-        self.devices = {}
+        self.devices = {} # ip -> device object
         self.link_rate = link_rate # aka capacity/transmission delay
         self.link_delay = link_delay # propogation delay
         self.send = simpy.Resource(env, capacity=1)
@@ -31,7 +31,12 @@ class Link:
         yield env.timeout(self.link_delay)
         self.devices[destination].receive_ack(packet, env)
 
-    def send_packet(self, packet, destination, env):
+    def send_packet(self, packet, source, env):
+        destination = -1
+        for ip in device:
+            if ip != source:
+                destination = ip
+
         if self.get_queue(packet.size):
             with self.send.request() as req:  # Generate a request event
                 yield req

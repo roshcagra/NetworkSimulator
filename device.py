@@ -14,7 +14,13 @@ class Device:
 class Router(Device):
     def __init__(self, ip, routing_table):
         Device.__init__(self, ip)
-        self.routing_table = routing_table
+        self.routing_table = routing_table # Maps destination ip -> link object
+
+    def route(self, packet, env):
+        print('Routing data packet: ', packet.id, ' at ', env.now)
+        env.process(self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env))
+
+
 
 class Host(Device):
     def __init__(self, ip):
@@ -26,7 +32,7 @@ class Host(Device):
         self.slow_start = {}
 
     def send_data(self, packet, destination, env):
-        env.process(self.links[0].send_packet(packet=packet, destination=destination, env=env))
+        env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
     def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
@@ -39,6 +45,7 @@ class Host(Device):
         curr_data = data
         while curr_data > 0:
             floored_window = math.floor(self.window_size[destination])
+            floored_window = int(floored_window) # todo remove before push
             curr_size = floored_window - self.unacknowledged_packets[destination]
             self.unacknowledged_packets[destination] = floored_window
             curr_data -= curr_size * DataPacket.size
@@ -49,7 +56,7 @@ class Host(Device):
             yield self.flow_reactivate[destination]
 
     def send_ack(self, packet, env):
-        env.process(self.links[0].send_packet(AckPacket(packet.id, self.ip, packet.source, packet), packet.source, env))
+        env.process(self.links[0].send_packet(AckPacket(packet.id, self.ip, packet.source, packet), self.ip, env))
 
     def receive_data(self, packet, env):
         print('Received data packet: ', packet.id, ' at ', env.now)
