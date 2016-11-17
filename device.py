@@ -16,7 +16,19 @@ class Device:
 class Router(Device):
     def __init__(self, ip, routing_table):
         Device.__init__(self, ip)
-        self.routing_table = routing_table
+        self.routing_table = routing_table # Maps destination ip -> link object
+
+    def receive_data(self, packet, env):
+        self.route(packet, env)
+
+    def receive_ack(self, packet, env):
+        self.receive_data(packet, env)
+
+    def route(self, packet, env):
+        # print('Routing sending data packet: ', packet.id, 'at', env.now)
+        env.process(self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env))
+
+
 
 class Host(Device):
     def __init__(self, ip):
@@ -29,8 +41,8 @@ class Host(Device):
 
         self.received = {}
 
-    def send_data(self, packet, destination, env):
-        env.process(self.links[0].send_packet(packet=packet, destination=destination, env=env))
+    def send_data(self, packet, env):
+        env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
     def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
@@ -43,17 +55,18 @@ class Host(Device):
         curr_data = data
         while curr_data > 0:
             floored_window = math.floor(self.window_size[destination])
+            floored_window = int(floored_window) # todo remove before push
             curr_size = floored_window - self.unacknowledged_packets[destination]
             self.unacknowledged_packets[destination] = floored_window
             curr_data -= curr_size * DataPacket.size
             for _ in range(0, curr_size):
                 new_packet = DataPacket(p_id=next_packet_id, source=self.ip, destination=destination)
-                self.send_data(new_packet, destination, env)
+                self.send_data(new_packet, env)
                 next_packet_id += 1
             yield self.flow_reactivate[destination]
 
     def send_ack(self, packet_id, source, env):
-        env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), source, env))
+        env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
 
     def get_ack_id(self, source):
         last_packet_id = 0
@@ -90,7 +103,7 @@ class Host(Device):
                 missing_packet = DataPacket(p_id=packet_id, source=self.ip, destination=destination)
                 self.slow_start[destination] = (True, self.window_size[destination]/2)
                 self.window_size[destination] = 1
-                self.send_data(missing_packet, destination, env)
+                self.send_data(missing_packet, env)
                 return
         else:
             self.last_acknowledged[destination] = (packet_id, 1)
