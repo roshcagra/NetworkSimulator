@@ -1,4 +1,5 @@
 import simpy
+import math
 from packet import DataPacket
 from packet import AckPacket
 
@@ -42,8 +43,7 @@ class Link:
                 yield req
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
                     next_time = self.last_dest[1]
-                    print('mutherfuck!!!!',next_time, env.now, next_time - env.now)
-                    yield env.timeout(next_time - env.now)
+                    yield env.timeout(max(0, next_time - env.now))
                 if isinstance(packet, DataPacket):
                     print('Link sending data packet:', packet.id, 'from', source, 'to', destination, 'at', env.now)
                     yield env.timeout(packet.size/self.link_rate * 1000)
