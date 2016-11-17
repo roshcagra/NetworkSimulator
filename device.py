@@ -85,7 +85,7 @@ class Host(Device):
         last_acknowledged_count = self.last_acknowledged[destination][1]
         if packet_id <= last_acknowledged:
             self.last_acknowledged[destination] = (last_acknowledged, last_acknowledged_count + 1)
-            if last_acknowledged_count >= 3:
+            if last_acknowledged_count == 3:
                 print('Packet Loss Detected. Retransmitting and starting Slow Start Procedure')
                 missing_packet = DataPacket(p_id=packet_id, source=self.ip, destination=destination)
                 self.slow_start[destination] = (True, self.window_size[destination]/2)
