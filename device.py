@@ -23,7 +23,7 @@ class Router(Device):
         self.receive_data(packet, env)
 
     def route(self, packet, env):
-        print('Routing data packet: ', packet.id, ' at ', env.now)
+        # print('Routing sending data packet: ', packet.id, 'at', env.now)
         env.process(self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env))
 
 

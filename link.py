@@ -45,11 +45,11 @@ class Link:
                     print('mutherfuck!!!!',next_time, env.now, next_time - env.now)
                     yield env.timeout(next_time - env.now)
                 if isinstance(packet, DataPacket):
-                    print('Sending data packet: ', packet.id, ' at ', env.now)
+                    print('Link sending data packet:', packet.id, 'from', source, 'to', destination, 'at', env.now)
                     yield env.timeout(packet.size/self.link_rate * 1000)
                     env.process(self.send_data_packet(packet, destination, env))
                 elif isinstance(packet, AckPacket):
-                    print('Sending ack packet: ', packet.id, ' at ', env.now)
+                    print('Link sending ack packet: ', packet.id, 'from', source, 'to', destination,' at ', env.now)
                     yield env.timeout(packet.size/self.link_rate * 1000)
                     env.process(self.send_ack_packet(packet, destination, env))
                 self.last_dest = (destination, env.now + self.link_delay)
