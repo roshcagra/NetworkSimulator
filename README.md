@@ -1,10 +1,10 @@
 # NetworkSimulator
 
 ## Language
-Python
+Python 3
 
 ## Simulator
-SimPy 3. It is built for simulations where there are many objects being simulated and they interact often. Simulating a network falls under this, so SimPy seems like a good fit. It's also allows Process Based Simulation, which is also cool.
+SimPy 3. It is built for simulations where there are many objects being simulated and they interact often. Network simulation using processes is very simple (our code is approximately 200 lines at the moment)
 
 ## Classes
 ### Packet
@@ -15,13 +15,13 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 
 ### Data_Packet
 #### Variables
-1. payload
+1. on_receive: an event to be passed onto the corresponding acknowledgement packet
 
 ### Ack_Packet
 #### Variables
-3. original_packet (not exactly sure how to encode)
+3. on_receive: an event to be triggered when the acknowledgement is received to interrupt the timer and prevent a timeout
 
-### Routing_Packet
+### Routing_Packet (TODO)
 #### Variables
 1. source: Router
 2. distance: number
@@ -39,7 +39,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 #### Variables
 1. routing_table: { destination: next_hop }
 
-#### Methods	
+#### Methods
 1. handle_routing(Routing_Packet): run the routing algorithm and send a routing packet.
 
 ### Host -> Extension of Device
@@ -47,10 +47,8 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 1. window_size: number
 
 #### Methods
-1. handle_ack(Ack_Packet): handle processing the acknowledgement (still has to be fleshed out).
-
-### Reno_Host -> Extension of Host
-### Fast_Host -> Extension of Host
+1. receive_ack(Ack_Packet): handle processing the acknowledgement. This involves interrupting the timer for the original packet, adjusting the window size, and performing error correction.
+2. receive_data(Data_Packet): handle processing data. This involves updating the list of received packets and generating the correct acknowledgement packet
 
 ### Link
 #### Variables
