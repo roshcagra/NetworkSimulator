@@ -10,6 +10,12 @@ class Device:
     def add_link(self, link):
         self.links.append(link)
 
+
+class Router(Device):
+    def __init__(self, ip, routing_table):
+        Device.__init__(self, ip)
+        self.routing_table = routing_table
+
 class Host(Device):
     def __init__(self, ip):
         Device.__init__(self, ip)
@@ -30,12 +36,12 @@ class Host(Device):
         self.slow_start[destination] = (True, float("inf"))
         next_packet_id = 0
 
-        currData = data
-        while currData > 0:
+        curr_data = data
+        while curr_data > 0:
             floored_window = math.floor(self.window_size[destination])
             curr_size = floored_window - self.unacknowledged_packets[destination]
             self.unacknowledged_packets[destination] = floored_window
-            currData -= curr_size * DataPacket.size
+            curr_data -= curr_size * DataPacket.size
             for _ in range(0, curr_size):
                 new_packet = DataPacket(p_id=next_packet_id, source=self.ip, destination=destination, time=env.now)
                 self.send_data(new_packet, destination, env)
