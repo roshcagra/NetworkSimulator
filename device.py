@@ -1,6 +1,7 @@
 import math
 from packet import DataPacket
 from packet import AckPacket
+from graphing import Graph
 
 aws = 10
 
@@ -38,6 +39,7 @@ class Host(Device):
         self.window_size = {}
         self.slow_start = {}
         self.last_acknowledged = {}
+        self.graph_wsize = Graph("Window Size")
 
         self.received = {}
 
@@ -114,7 +116,9 @@ class Host(Device):
                     self.slow_start[destination] = (False, aws)
             else:
                 self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
-            self.unacknowledged_packets[destination] -= 1
-            if self.unacknowledged_packets[destination] < self.window_size[destination]:
-                self.flow_reactivate[destination].succeed()
-                self.flow_reactivate[destination] = env.event()
+        self.graph_wsize.add_point(env.now, self.window_size[destination])
+
+        self.unacknowledged_packets[destination] -= 1
+        if self.unacknowledged_packets[destination] < self.window_size[destination]:
+            self.flow_reactivate[destination].succeed()
+            self.flow_reactivate[destination] = env.event()
