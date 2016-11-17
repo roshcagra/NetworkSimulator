@@ -16,6 +16,12 @@ class Router(Device):
         Device.__init__(self, ip)
         self.routing_table = routing_table # Maps destination ip -> link object
 
+    def receive_data(self, packet, env):
+        self.route(packet, env)
+
+    def receive_ack(self, packet, env):
+        self.receive_data(packet, env)
+
     def route(self, packet, env):
         print('Routing data packet: ', packet.id, ' at ', env.now)
         env.process(self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env))

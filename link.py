@@ -33,7 +33,7 @@ class Link:
 
     def send_packet(self, packet, source, env):
         destination = -1
-        for ip in device:
+        for ip in self.devices:
             if ip != source:
                 destination = ip
 
@@ -42,6 +42,7 @@ class Link:
                 yield req
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
                     next_time = self.last_dest[1]
+                    print('mutherfuck!!!!',next_time, env.now, next_time - env.now)
                     yield env.timeout(next_time - env.now)
                 if isinstance(packet, DataPacket):
                     print('Sending data packet: ', packet.id, ' at ', env.now)

@@ -1,5 +1,6 @@
 import simpy
 from device import Host
+from device import Router
 from link import Link
 
 env = simpy.Environment()
