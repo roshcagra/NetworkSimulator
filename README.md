@@ -60,3 +60,11 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 
 #### Methods
 1. send(): send a packet, taking into out account capacity, the queue, transmission delay, and buffer size.
+
+
+### Flow
+Defined as a function which is passed the following parameters:
+1. Total amount of data to be sent
+2. Source
+3. Destination
+4. Initial delay
