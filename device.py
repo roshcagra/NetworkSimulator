@@ -2,6 +2,8 @@ import math
 from packet import DataPacket
 from packet import AckPacket
 
+aws = 10
+
 class Device:
     def __init__(self, ip):
         self.ip = ip
@@ -22,8 +24,10 @@ class Host(Device):
         self.flow_reactivate = {}
         self.unacknowledged_packets = {}
         self.window_size = {}
-        self.timeout = {}
         self.slow_start = {}
+        self.last_acknowledged = {}
+
+        self.received = {}
 
     def send_data(self, packet, destination, env):
         env.process(self.links[0].send_packet(packet=packet, destination=destination, env=env))
@@ -32,8 +36,8 @@ class Host(Device):
         self.window_size[destination] = 1
         self.unacknowledged_packets[destination] = 0
         self.flow_reactivate[destination] = env.event()
-        self.timeout[destination] = None
-        self.slow_start[destination] = (True, float("inf"))
+        self.slow_start[destination] = (True, aws)
+        self.last_acknowledged[destination] = (-1, 0)
         next_packet_id = 0
 
         curr_data = data
@@ -43,57 +47,50 @@ class Host(Device):
             self.unacknowledged_packets[destination] = floored_window
             curr_data -= curr_size * DataPacket.size
             for _ in range(0, curr_size):
-                new_packet = DataPacket(p_id=next_packet_id, source=self.ip, destination=destination, time=env.now)
+                new_packet = DataPacket(p_id=next_packet_id, source=self.ip, destination=destination)
                 self.send_data(new_packet, destination, env)
                 next_packet_id += 1
             yield self.flow_reactivate[destination]
 
     def send_ack(self, packet, env):
-        env.process(self.links[0].send_packet(AckPacket(packet.id, self.ip, packet.source, packet), packet.source, env))
+        env.process(self.links[0].send_packet(AckPacket(packet.id, self.ip, packet.source), packet.source, env))
 
     def receive_data(self, packet, env):
-        print('Received data packet: ', packet.id, ' at ', env.now)
+        packet_id = packet.id
+        packet_source = packet.source
+        print('Received data packet: ', packet_id, ' at ', env.now)
+        if packet_source not in self.received:
+            self.received[packet_source] = [packet_id]
+        else:
+            if packet_id not in self.received[packet_source]:
+                self.received[packet_source].append(packet_id)
+                self.received[packet_source].sort()
         self.send_ack(packet, env)
 
-    def handle_timeout(self, data_packet, arrival_time, destination):
-        travel_time = arrival_time - data_packet.time
-        if self.timeout[destination] is None:
-            self.timeout[destination] = (travel_time, travel_time)
-            return False
-        arrival_n = self.timeout[destination][0]
-        deviation_n = self.timeout[destination][1]
-        b = 0.5
-
-        arrival_n1 = (1 - b) * arrival_n + b * travel_time
-        deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n1)
-        self.timeout[destination] = (arrival_n1, deviation_n1)
-
-        curr_timeout = arrival_n + 4 * deviation_n
-        return travel_time > curr_timeout
-
     def receive_ack(self, packet, env):
-        print('Received ack packet: ', packet.id, ' at ', env.now)
-        data_packet = packet.data
-        destination = data_packet.destination
-        if self.slow_start[destination][0]:
-            if self.handle_timeout(data_packet, env.now, destination):
-                print('Timeout during Slow Start, resetting')
-                self.slow_start[destination] = (True, self.window_size[destination] / 2)
+        packed_id = packet.id
+        print('Received ack packet: ', packed_id, ' at ', env.now)
+        destination = packet.source
+        last_recieved = self.last_acknowledged[destination][0]
+        last_received_count = self.last_acknowledged[destination][1]
+        if last_recieved >= packed_id:
+            if last_received_count == 3:
+                print('Packet Loss Detected. Retransmitting and starting Slow Start Procedure')
+                missing_packet = DataPacket(p_id=packed_id, source=self.ip, destination=destination)
+                env.process(self.send_data(missing_packet, destination, env))
+                self.slow_start[destination] = (True, aws)
                 self.window_size[destination] = 1
-            elif self.window_size[destination] > self.slow_start[destination][1]:
-                print('Entering Congestion Control')
-                self.slow_start[destination] = (False, float("inf"))
-                self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
-            else:
-                self.window_size[destination] += 1
+            self.last_acknowledged[destination] = (last_recieved, last_received_count + 1)
         else:
-            if self.handle_timeout(data_packet, env.now, destination):
-                print('Timeout during Congestion Control, beginning Slow Start')
-                self.slow_start[destination] = (True, self.window_size[destination] / 2)
-                self.window_size[destination] = 1
+            self.last_acknowledged[destination] = (packed_id, 1)
+            if self.slow_start[destination][0]:
+                self.window_size[destination] += 1
+                if self.window_size[destination] > self.slow_start[destination][1]:
+                    print('Entering Congestion Control')
+                    self.slow_start[destination] = (False, aws)
             else:
                 self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
-        self.unacknowledged_packets[destination] -= 1
-        if self.unacknowledged_packets[destination] < self.window_size[destination]:
-            self.flow_reactivate[destination].succeed()
-            self.flow_reactivate[destination] = env.event()
+            self.unacknowledged_packets[destination] -= 1
+            if self.unacknowledged_packets[destination] < self.window_size[destination]:
+                self.flow_reactivate[destination].succeed()
+                self.flow_reactivate[destination] = env.event()
