@@ -7,9 +7,8 @@ class Packet(object):
 class DataPacket(Packet):
     """TODO: Data Packet"""
     size = 1024
-    def __init__(self, p_id, source, destination, on_receive):
+    def __init__(self, p_id, source, destination):
         super(DataPacket, self).__init__(p_id=p_id, source=source, destination=destination)
-        self.on_receive = on_receive
 
 class AckPacket(Packet):
     """TODO: Acknowledgement Packet"""
