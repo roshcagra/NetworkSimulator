@@ -47,6 +47,10 @@ class Router(Device):
                 self.distance_table[key] = packet.distance_table[key] + edge_weight
                 self.routing_table[key] = packet.link
 
+        print(self.ip 'routing table:')
+        print(self.routing_table)
+        print('------------------------------')
+
     def send_router(self, env):
         p_id = env.now * 100 + self.ip # unique ID, assumes ip is less than 100
         for link in links:
