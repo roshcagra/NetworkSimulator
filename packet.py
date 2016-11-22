@@ -23,3 +23,8 @@ class RouterPacket(Packet):
         super(RouterPacket, self).__init__(source=source)
         self.distance_table = distance_table
         self.time_sent = time_sent
+        self.link = None
+
+    # The link that the routerPacket came in on
+    def specify_link(self, link):
+        self.link = link

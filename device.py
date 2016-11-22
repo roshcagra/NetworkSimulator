@@ -16,10 +16,14 @@ class Device:
 
 
 class Router(Device):
-    def __init__(self, ip, routing_table):
+    def __init__(self, ip, routing_table=None):
         Device.__init__(self, ip)
-        self.routing_table = routing_table # destination ip -> link object (next hop)
-        self.distance_table = {} # destination ip -> distance/cost
+        self.distance_table = {ip : 0} # destination ip -> distance/cost/time. Would be more accurate to call 'time_table' since the weight we are measuring here is time
+
+        if routing_table != None: # routing table has been passed in
+            self.routing_table = routing_table # destination ip -> link object (next hop)
+        else:
+            self.routing_table = {}
 
     def receive_data(self, packet, env):
         self.route(packet, env)
@@ -29,7 +33,26 @@ class Router(Device):
 
     def route(self, packet, env):
         # print('Routing sending data packet: ', packet.id, 'at', env.now)
-        env.process(self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env))
+        env.process(self.routing_table[packet.destination].send_packet(packet=packet, source=self.ip, env=env))
+        # self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env)
+
+    def recieve_router(self, packet, env):
+        edge_weight = env.now - packet.time_sent
+
+        for key in packet.distance_table:
+            if key not in self.distance_table: # a router we have never seen before
+                self.distance_table[key] = packet.distance_table[key] + edge_weight
+                self.routing_table[key] = packet.link
+            elif packet.distance_table[key] + edge_weight < self.distance_table[key] # this route offers a shorter path to 'key'
+                self.distance_table[key] = packet.distance_table[key] + edge_weight
+                self.routing_table[key] = packet.link
+
+    def send_router(self, env):
+        p_id = env.now * 100 + self.ip # unique ID, assumes ip is less than 100
+        for link in links:
+            router_packet = RouterPacket(p_id=p_id, source=self.ip, distance_table=self.distance_table, time_sent=env.now)
+            router_packet.specify_link(link)
+            env.process(link.send_packet(packet=router_packet, source=self.ip, env=env))
 
 
 class Host(Device):
