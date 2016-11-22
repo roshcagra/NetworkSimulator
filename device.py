@@ -14,7 +14,8 @@ class Device:
 class Router(Device):
     def __init__(self, ip, routing_table):
         Device.__init__(self, ip)
-        self.routing_table = routing_table # Maps destination ip -> link object
+        self.routing_table = routing_table # destination ip -> link object (next hop)
+        self.distance_table = {} # destination ip -> distance/cost
 
     def receive_data(self, packet, env):
         self.route(packet, env)

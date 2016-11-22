@@ -1,8 +1,8 @@
 class Packet(object):
     def __init__(self, p_id, source, destination):
         self.id = p_id
-        self.source = source
-        self.destination = destination
+        self.source = source # ip
+        self.destination = destination # ip
 
 class DataPacket(Packet):
     """TODO: Data Packet"""
@@ -21,5 +21,7 @@ class AckPacket(Packet):
 class RouterPacket(Packet):
     """TODO: Router Packet"""
     size = 64
-    def __init__(self, p_id, source, destination):
-        super(RouterPacket, self).__init__(source=source, destination=destination)
+    def __init__(self, p_id, source, distance_table, time_sent):
+        super(RouterPacket, self).__init__(source=source)
+        self.distance_table = distance_table
+        self.time_sent = time_sent
