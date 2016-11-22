@@ -1,6 +1,10 @@
 import math
+import simpy
 from packet import DataPacket
 from packet import AckPacket
+from graphing import Graph
+
+aws = float('inf')
 
 class Device:
     def __init__(self, ip):
@@ -28,25 +32,62 @@ class Router(Device):
         env.process(self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env))
 
 
-
 class Host(Device):
     def __init__(self, ip):
         Device.__init__(self, ip)
         self.flow_reactivate = {}
         self.unacknowledged_packets = {}
         self.window_size = {}
-        self.timeout = {}
         self.slow_start = {}
+        self.graph_wsize = Graph("Window Size")
+        self.timer = {}
+        self.retransmit_queue = {}
 
-    def send_data(self, packet, destination, env):
+        self.received = {}
+
+    def get_timeout(self, destination):
+        if destination not in self.timer:
+            return float("inf")
+        arrival_n = self.timer[destination][0]
+        deviation_n = self.timer[destination][1]
+        return arrival_n + 4 * deviation_n
+
+    def update_timer(self, send_time, arrival_time, destination):
+        travel_time = arrival_time - send_time
+        if destination not in self.timer:
+            self.timer[destination] = (travel_time, travel_time)
+            return
+        arrival_n = self.timer[destination][0]
+        deviation_n = self.timer[destination][1]
+        b = 0.5
+
+        arrival_n1 = (1 - b) * arrival_n + b * travel_time
+        deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n1)
+        self.timer[destination] = (arrival_n1, deviation_n1)
+
+    def timeout(self, packet_id, destination, is_retransmit, env):
+        send_time = env.now
+        try:
+            yield env.timeout(self.get_timeout(destination))
+            print('Timer timed out for packet ', packet_id, 'Resending packet and restarting timer.')
+            self.slow_start[destination] = (True, self.window_size[destination] / 2)
+            self.window_size[destination] = 1
+            self.send_data(packet_id, destination, True, env)
+        except simpy.Interrupt:
+            if not is_retransmit:
+                self.update_timer(send_time, env.now, destination)
+
+    def send_data(self, p_id, destination, is_retransmit, env):
+        self.retransmit_queue[destination][p_id] = env.process(self.timeout(p_id, destination, is_retransmit, env))
+        packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
     def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
         self.unacknowledged_packets[destination] = 0
         self.flow_reactivate[destination] = env.event()
-        self.timeout[destination] = None
-        self.slow_start[destination] = (True, float("inf"))
+        self.slow_start[destination] = (True, aws)
+        self.retransmit_queue[destination] = {}
         next_packet_id = 0
 
         curr_data = data
@@ -57,56 +98,42 @@ class Host(Device):
             self.unacknowledged_packets[destination] = floored_window
             curr_data -= curr_size * DataPacket.size
             for _ in range(0, curr_size):
-                new_packet = DataPacket(p_id=next_packet_id, source=self.ip, destination=destination, time=env.now)
-                self.send_data(new_packet, destination, env)
+                self.send_data(next_packet_id, destination, False, env)
                 next_packet_id += 1
             yield self.flow_reactivate[destination]
 
-    def send_ack(self, packet, env):
-        env.process(self.links[0].send_packet(AckPacket(packet.id, self.ip, packet.source, packet), self.ip, env))
+    def send_ack(self, packet_id, source, env):
+        env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
 
     def receive_data(self, packet, env):
-        print('Received data packet: ', packet.id, ' at ', env.now)
-        self.send_ack(packet, env)
+        packet_id = packet.id
+        packet_source = packet.source
+        print('Received data packet: ', packet_id, ' at ', env.now)
 
-    def handle_timeout(self, data_packet, arrival_time, destination):
-        travel_time = arrival_time - data_packet.time
-        if self.timeout[destination] is None:
-            self.timeout[destination] = (travel_time, travel_time)
-            return False
-        arrival_n = self.timeout[destination][0]
-        deviation_n = self.timeout[destination][1]
-        b = 0.5
+        if packet_source not in self.received:
+            self.received[packet_source] = [packet_id]
+        elif packet_id in self.received[packet_source]:
+            return
+        else:
+            self.received[packet_source].append(packet_id)
+            self.received[packet_source].sort()
 
-        arrival_n1 = (1 - b) * arrival_n + b * travel_time
-        deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n1)
-        self.timeout[destination] = (arrival_n1, deviation_n1)
-
-        curr_timeout = arrival_n + 4 * deviation_n
-        return travel_time > curr_timeout
+        self.send_ack(packet_id, packet_source, env)
 
     def receive_ack(self, packet, env):
-        print('Received ack packet: ', packet.id, ' at ', env.now)
-        data_packet = packet.data
-        destination = data_packet.destination
+        packet_id = packet.id
+        destination = packet.source
+        self.retransmit_queue[destination][packet_id].interrupt()
+        print('Received ack packet: ', packet_id, ' at ', env.now)
         if self.slow_start[destination][0]:
-            if self.handle_timeout(data_packet, env.now, destination):
-                print('Timeout during Slow Start, resetting')
-                self.slow_start[destination] = (True, self.window_size[destination] / 2)
-                self.window_size[destination] = 1
-            elif self.window_size[destination] > self.slow_start[destination][1]:
+            self.window_size[destination] += 1
+            if self.window_size[destination] > self.slow_start[destination][1]:
                 print('Entering Congestion Control')
-                self.slow_start[destination] = (False, float("inf"))
-                self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
-            else:
-                self.window_size[destination] += 1
+                self.slow_start[destination] = (False, aws)
         else:
-            if self.handle_timeout(data_packet, env.now, destination):
-                print('Timeout during Congestion Control, beginning Slow Start')
-                self.slow_start[destination] = (True, self.window_size[destination] / 2)
-                self.window_size[destination] = 1
-            else:
-                self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
+            self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
+        self.graph_wsize.add_point(env.now, self.window_size[destination])
+
         self.unacknowledged_packets[destination] -= 1
         if self.unacknowledged_packets[destination] < self.window_size[destination]:
             self.flow_reactivate[destination].succeed()
