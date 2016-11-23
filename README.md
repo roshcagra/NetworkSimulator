@@ -19,7 +19,7 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 ### Ack_Packet
 #### Variables
 
-### Routing_Packet (TODO)
+### Routing_Packet
 #### Variables
 1. distance_table: table of distances calculated by the sending router
 2. time_sent: time that the routing packet was sent by the sending router
@@ -73,9 +73,12 @@ SimPy 3. It is built for simulations where there are many objects being simulate
 1. send(): send a packet, taking into out account buffer_size, the queue, and transmission delay.
 
 
-### Flow
-Defined as a function which is passed the following parameters:
+### Flow (Process Function)
+#### Parameters:
 1. Total amount of data to be sent
 2. Source
 3. Destination
 4. Initial delay
+
+#### Function:
+Calls Host.start_flow with the above parameters as an individual process.
