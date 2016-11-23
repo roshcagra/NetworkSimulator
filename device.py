@@ -83,6 +83,7 @@ class Host(Device):
         self.graph_wsize = Graph("Window Size")
         self.timer = {}
         self.retransmit_queue = {}
+        self.sending = {}
         self.last_acknowledged = {}
 
         self.received = {}
@@ -107,8 +108,8 @@ class Host(Device):
         deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n1)
         self.timer[destination] = (arrival_n1, deviation_n1)
 
-    def send_data(self, id_range, destination, is_retransmit, env):
-        timeout_wait = self.get_timeout(destination) * (1 + is_retransmit)
+    def timeout(self, id_range, destination, try_number, env):
+        timeout_wait = self.get_timeout(destination) * (try_number)
         for p_id in id_range:
             self.retransmit_queue[destination][p_id] = True
             packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
@@ -116,11 +117,16 @@ class Host(Device):
         yield env.timeout(timeout_wait)
         for p_id in id_range:
             if self.retransmit_queue[destination][p_id]:
-                print('Timeout', self.retransmit_queue[destination][p_id])
+                print('Timeout for', p_id, 'occurred. Retransmitting and resetting timeout.')
                 self.ss_thresh[destination] = self.window_size[destination] / 2
                 self.window_size[destination] = 1
-                env.process(self.send_data(range(p_id, id_range[-1] + 1), destination, True, env))
+                self.send_data(range(p_id, id_range[-1] + 1), destination, try_number + 1, env)
                 break
+
+    def send_data(self, id_range, destination, try_number, env):
+        send_proc = env.process(self.timeout(id_range, destination, try_number, env))
+        for i in id_range:
+            self.sending[destination][i] = send_proc
 
     def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
@@ -129,6 +135,7 @@ class Host(Device):
         self.retransmit_queue[destination] = {}
         self.ss_thresh[destination] = 64
         self.last_acknowledged[destination] = (0, 0)
+        self.sending[destination] = {}
         next_packet_id = 0
 
         curr_data = data
@@ -138,7 +145,7 @@ class Host(Device):
             curr_size = min(floored_window, curr_packets)
             self.unacknowledged_packets[destination] = floored_window
             curr_data -= curr_size * DataPacket.size
-            env.process(self.send_data(range(next_packet_id, next_packet_id + curr_size), destination, False, env))
+            self.send_data(range(next_packet_id, next_packet_id + curr_size), destination, 1, env)
             next_packet_id += curr_size
             yield self.flow_reactivate[destination]
 
@@ -180,6 +187,13 @@ class Host(Device):
             self.last_acknowledged[destination] = (packet_id, 1)
         elif last_acknowledged[0] == packet_id:
             self.last_acknowledged[destination] = (packet_id, last_acknowledged[1] + 1)
+
+        if last_acknowledged[1] == 4:
+            self.window_size[destination] = self.window_size[destination] / 2
+            self.ss_thresh[destination] = self.window_size[destination] / 2
+            print('Duplicate acks received. Fast Retransmitting.')
+            self.sending[destination][self.last_acknowledged[destination][0]].interrupt()
+
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
         if self.window_size[destination] < self.ss_thresh[destination]:
