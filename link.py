@@ -2,6 +2,7 @@ import simpy
 import math
 from packet import DataPacket
 from packet import AckPacket
+from packet import RouterPacket
 from graphing import Graph
 
 class Link:
@@ -41,6 +42,11 @@ class Link:
         yield env.timeout(self.link_delay)
         self.devices[destination].receive_ack(packet, env)
 
+    def send_router_packet(self, packet, destination, env):
+        self.put_queue(RouterPacket.size, env)
+        yield env.timeout(self.link_delay)
+        self.devices[destination].recieve_router(packet, env) 
+
     def send_packet(self, packet, source, env):
         destination = -1
         for ip in self.devices:
@@ -61,4 +67,8 @@ class Link:
                     print('Link sending ack packet: ', packet.id, 'from', source, 'to', destination,' at ', env.now)
                     yield env.timeout(packet.size/self.link_rate * 1000)
                     env.process(self.send_ack_packet(packet, destination, env))
+                elif isinstance(packet, RouterPacket):
+                    # print('Link sending router packet: ', packet.id, 'from', source, 'to', destination,' at ', env.now)
+                    yield env.timeout(packet.size/self.link_rate * 1000)
+                    env.process(self.send_router_packet(packet, destination, env))
                 self.last_dest = (destination, env.now + self.link_delay)
