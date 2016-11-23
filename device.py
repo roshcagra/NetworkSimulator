@@ -79,16 +79,17 @@ class Host(Device):
         self.flow_reactivate = {}
         self.unacknowledged_packets = {}
         self.window_size = {}
-        self.slow_start = {}
+        self.ss_thresh = {}
         self.graph_wsize = Graph("Window Size")
         self.timer = {}
         self.retransmit_queue = {}
+        self.last_acknowledged = {}
 
         self.received = {}
 
     def get_timeout(self, destination):
         if destination not in self.timer:
-            return float("inf")
+            return 100
         arrival_n = self.timer[destination][0]
         deviation_n = self.timer[destination][1]
         return arrival_n + 4 * deviation_n
@@ -106,45 +107,52 @@ class Host(Device):
         deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n1)
         self.timer[destination] = (arrival_n1, deviation_n1)
 
-    def timeout(self, packet_id, destination, is_retransmit, env):
-        send_time = env.now
-        try:
-            yield env.timeout(self.get_timeout(destination))
-            print('Timer timed out for packet ', packet_id, 'Resending packet and restarting timer.')
-            self.slow_start[destination] = (True, self.window_size[destination] / 2)
-            self.window_size[destination] = 1
-            self.send_data(packet_id, destination, True, env)
-        except simpy.Interrupt:
-            if not is_retransmit:
-                self.update_timer(send_time, env.now, destination)
-
-    def send_data(self, p_id, destination, is_retransmit, env):
-        self.retransmit_queue[destination][p_id] = env.process(self.timeout(p_id, destination, is_retransmit, env))
-        packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
-        env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
+    def send_data(self, id_range, destination, is_retransmit, env):
+        timeout_wait = self.get_timeout(destination) * (1 + is_retransmit)
+        for p_id in id_range:
+            self.retransmit_queue[destination][p_id] = True
+            packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
+            env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
+        yield env.timeout(timeout_wait)
+        for p_id in id_range:
+            if self.retransmit_queue[destination][p_id]:
+                print('Timeout', self.retransmit_queue[destination][p_id])
+                self.ss_thresh[destination] = self.window_size[destination] / 2
+                self.window_size[destination] = 1
+                env.process(self.send_data(range(p_id, id_range[-1] + 1), destination, True, env))
+                break
 
     def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
         self.unacknowledged_packets[destination] = 0
         self.flow_reactivate[destination] = env.event()
-        self.slow_start[destination] = (True, aws)
         self.retransmit_queue[destination] = {}
+        self.ss_thresh[destination] = 64
+        self.last_acknowledged[destination] = (0, 0)
         next_packet_id = 0
 
         curr_data = data
         while curr_data > 0:
             floored_window = math.floor(self.window_size[destination])
-            floored_window = int(floored_window) # todo remove before push
-            curr_size = floored_window - self.unacknowledged_packets[destination]
+            curr_packets = math.ceil(curr_data / DataPacket.size)
+            curr_size = min(floored_window, curr_packets)
             self.unacknowledged_packets[destination] = floored_window
             curr_data -= curr_size * DataPacket.size
-            for _ in range(0, curr_size):
-                self.send_data(next_packet_id, destination, False, env)
-                next_packet_id += 1
+            env.process(self.send_data(range(next_packet_id, next_packet_id + curr_size), destination, False, env))
+            next_packet_id += curr_size
             yield self.flow_reactivate[destination]
 
     def send_ack(self, packet_id, source, env):
         env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
+
+    def get_next_ack(self, packet_source):
+        received = self.received[packet_source]
+        expected = 0
+        for i in received:
+            if i != expected:
+                return expected
+            expected += 1
+        return expected
 
     def receive_data(self, packet, env):
         packet_id = packet.id
@@ -159,23 +167,26 @@ class Host(Device):
             self.received[packet_source].append(packet_id)
             self.received[packet_source].sort()
 
-        self.send_ack(packet_id, packet_source, env)
+        self.send_ack(self.get_next_ack(packet_source), packet_source, env)
 
     def receive_ack(self, packet, env):
         packet_id = packet.id
         destination = packet.source
-        self.retransmit_queue[destination][packet_id].interrupt()
         print('Received ack packet: ', packet_id, ' at ', env.now)
-        if self.slow_start[destination][0]:
-            self.window_size[destination] += 1
-            if self.window_size[destination] > self.slow_start[destination][1]:
-                print('Entering Congestion Control')
-                self.slow_start[destination] = (False, aws)
-        else:
-            self.window_size[destination] += 1 / 8 + 1 / self.window_size[destination]
+        last_acknowledged = self.last_acknowledged[destination]
+        for i in range(last_acknowledged[0], packet_id):
+            self.retransmit_queue[destination][i] = False
+        if last_acknowledged[0] < packet_id:
+            self.last_acknowledged[destination] = (packet_id, 1)
+        elif last_acknowledged[0] == packet_id:
+            self.last_acknowledged[destination] = (packet_id, last_acknowledged[1] + 1)
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
+        if self.window_size[destination] < self.ss_thresh[destination]:
+            self.window_size[destination] += 1
+        else:
+            self.window_size[destination] += 1 / self.window_size[destination]
         self.unacknowledged_packets[destination] -= 1
-        if self.unacknowledged_packets[destination] < self.window_size[destination]:
+        if self.unacknowledged_packets[destination] == 0:
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
