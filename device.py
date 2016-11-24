@@ -27,16 +27,12 @@ class Router(Device):
         else:
             self.routing_table = {}
 
-    def receive_data(self, packet, env):
+    def receive_packet(self, packet, env):
         self.route(packet, env)
-
-    def receive_ack(self, packet, env):
-        self.receive_data(packet, env)
 
     def route(self, packet, env):
         # print('Routing sending data packet: ', packet.id, 'at', env.now)
         env.process(self.routing_table[packet.destination].send_packet(packet=packet, source=self.ip, env=env))
-        # self.routing_table[packet.destination].send_packet(packet=packet,source=self.ip, env=env)
 
     def recieve_router(self, packet, env):
         edge_weight = env.now - packet.time_sent
@@ -157,6 +153,7 @@ class Host(Device):
             next_packet_id += curr_size
             yield self.flow_reactivate[destination]
 
+
     def send_ack(self, packet_id, source, env):
         env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
 
@@ -215,3 +212,11 @@ class Host(Device):
         if self.unacknowledged_packets[destination] < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
+
+    def receive_packet(self, packet, env):
+        if isinstance(packet, DataPacket):
+            self.receive_data(packet, env)
+        elif isinstance(packet, AckPacket):
+            self.receive_ack(packet, env)
+        elif isinstance(packet, RouterPacket):
+            pass

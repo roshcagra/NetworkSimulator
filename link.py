@@ -30,23 +30,6 @@ class Link:
         self.queue.put(packet_size)
         self.graph_buffocc.add_point(env.now, self.queue.capacity - self.queue.level)
 
-    def send_data_packet(self, packet, destination, env):
-        #self.queue.put(DataPacket.size)
-        self.put_queue(DataPacket.size, env)
-        yield env.timeout(self.link_delay)
-        self.devices[destination].receive_data(packet, env)
-
-    def send_ack_packet(self, packet, destination, env):
-        #self.queue.put(AckPacket.size)
-        self.put_queue(AckPacket.size, env)
-        yield env.timeout(self.link_delay)
-        self.devices[destination].receive_ack(packet, env)
-
-    def send_router_packet(self, packet, destination, env):
-        self.put_queue(RouterPacket.size, env)
-        yield env.timeout(self.link_delay)
-        self.devices[destination].recieve_router(packet, env) 
-
     def send_packet(self, packet, source, env):
         destination = -1
         for ip in self.devices:
@@ -59,16 +42,9 @@ class Link:
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
                     next_time = self.last_dest[1]
                     yield env.timeout(max(0, next_time - env.now))
-                if isinstance(packet, DataPacket):
-                    print('Link sending data packet:', packet.id, 'from', source, 'to', destination, 'at', env.now)
-                    yield env.timeout(packet.size/self.link_rate * 1000)
-                    env.process(self.send_data_packet(packet, destination, env))
-                elif isinstance(packet, AckPacket):
-                    print('Link sending ack packet: ', packet.id, 'from', source, 'to', destination,' at ', env.now)
-                    yield env.timeout(packet.size/self.link_rate * 1000)
-                    env.process(self.send_ack_packet(packet, destination, env))
-                elif isinstance(packet, RouterPacket):
-                    # print('Link sending router packet: ', packet.id, 'from', source, 'to', destination,' at ', env.now)
-                    yield env.timeout(packet.size/self.link_rate * 1000)
-                    env.process(self.send_router_packet(packet, destination, env))
+                print('Time', env.now, 'Link sending', packet.__class__.__name__, packet.id, 'from Device', source, 'to Device', destination)
+                yield env.timeout(packet.size/self.link_rate * 1000)
+                self.put_queue(packet.size, env)
                 self.last_dest = (destination, env.now + self.link_delay)
+            yield env.timeout(self.link_delay)
+            self.devices[destination].receive_packet(packet, env)
