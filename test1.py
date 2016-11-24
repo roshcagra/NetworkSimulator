@@ -6,7 +6,7 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 1024 * 300
+data1 = 1024 * 5000
 devices = [Host(ip=0), Host(ip=1),
 Router(ip=2, routing_table={0:0, 1:1}),
 Router(ip=3, routing_table={0:0, 1:1}),

@@ -78,6 +78,7 @@ class Host(Device):
         self.unacknowledged_packets = {}
         self.window_size = {}
         self.ss_thresh = {}
+        self.send_times = {}
         self.timeout_clock = {}
         self.timer = {}
         self.last_acknowledged = {}
@@ -108,7 +109,7 @@ class Host(Device):
 
     def retransmit(self, destination, env):
         p_id = self.last_acknowledged[destination][0]
-        self.send_data(p_id, destination, env)
+        self.send_data(p_id, destination, True, env)
 
     def reset_timer(self, destination, try_number, env):
         try:
@@ -124,7 +125,11 @@ class Host(Device):
             elif message.cause == 'end':
                 pass
 
-    def send_data(self, p_id, destination, env):
+    def send_data(self, p_id, destination, is_retransmit, env):
+        if not is_retransmit:
+            self.send_times[destination][p_id] = env.now
+        else:
+            self.send_times[destination].pop(p_id, None)
         packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
@@ -134,6 +139,7 @@ class Host(Device):
         self.flow_reactivate[destination] = env.event()
         self.ss_thresh[destination] = 64
         self.last_acknowledged[destination] = (0, 0)
+        self.send_times[destination] = {}
         self.eof[destination] = math.ceil(data / DataPacket.size)
         self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
         next_packet_id = 0
@@ -142,17 +148,18 @@ class Host(Device):
         while curr_data > 0:
             floored_window = math.floor(self.window_size[destination])
             curr_packets = math.ceil(curr_data / DataPacket.size)
+            print('curr_packets', curr_packets)
             curr_size = min(floored_window - self.unacknowledged_packets[destination], curr_packets)
             self.unacknowledged_packets[destination] = self.unacknowledged_packets[destination] + curr_size
+            print(self.unacknowledged_packets[destination])
             curr_data -= curr_size * DataPacket.size
             for p_id in range(next_packet_id, next_packet_id + curr_size):
-                self.send_data(p_id, destination, env)
+                self.send_data(p_id, destination, False, env)
             next_packet_id += curr_size
             yield self.flow_reactivate[destination]
 
     def end_flow(self, destination, env):
         self.timer[destination].interrupt('end')
-
 
     def send_ack(self, packet_id, source, env):
         env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
@@ -188,30 +195,36 @@ class Host(Device):
         if packet_id == self.eof[destination]:
             self.end_flow(destination, env)
             return
+
+        if packet_id in self.send_times[destination]:
+            self.update_timeout_clock(self.send_times[destination][packet_id], env.now, destination)
+
         self.timer[destination].interrupt('reset')
-        last_acknowledged = self.last_acknowledged[destination]
-        if last_acknowledged[0] < packet_id:
+        if self.last_acknowledged[destination][0] < packet_id:
             self.unacknowledged_packets[destination] -= 1
             self.last_acknowledged[destination] = (packet_id, 1)
             if self.window_size[destination] < self.ss_thresh[destination]:
                 self.window_size[destination] += 1
             else:
                 self.window_size[destination] += (1 / self.window_size[destination])
-        elif last_acknowledged[0] == packet_id:
-            self.last_acknowledged[destination] = (packet_id, last_acknowledged[1] + 1)
+        elif self.last_acknowledged[destination][0] == packet_id:
+            self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
 
-        if last_acknowledged[1] == 4:
+        if self.last_acknowledged[destination][1] == 4:
             self.ss_thresh[destination] = self.window_size[destination] / 2
-            self.window_size[destination] = self.ss_thresh[destination]
+            self.window_size[destination] = self.window_size[destination] / 2
             self.unacknowledged_packets[destination] -= 3
             print('Duplicate acks received. Fast Retransmitting.')
             self.retransmit(destination, env)
-        elif last_acknowledged[1] > 4:
+        elif self.last_acknowledged[destination][1] > 4:
             self.unacknowledged_packets[destination] -= 1
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
+        print(self.unacknowledged_packets[destination], self.window_size[destination])
+
         if self.unacknowledged_packets[destination] < math.floor(self.window_size[destination]):
+            print('here')
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
 
