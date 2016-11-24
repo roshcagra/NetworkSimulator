@@ -122,6 +122,7 @@ class Host(Device):
                     self.ss_thresh[destination] = self.window_size[destination] / 2
                     self.window_size[destination] = 1
                     self.send_data(range(p_id, id_range[-1] + 1), destination, try_number + 1, env)
+                    self.graph_wsize.add_point(env.now, self.window_size[destination])
                     break
         except simpy.Interrupt:
             for p_id in id_range:
@@ -150,7 +151,7 @@ class Host(Device):
             floored_window = math.floor(self.window_size[destination])
             curr_packets = math.ceil(curr_data / DataPacket.size)
             curr_size = min(floored_window - self.unacknowledged_packets[destination], curr_packets)
-            self.unacknowledged_packets[destination] = floored_window
+            self.unacknowledged_packets[destination] = self.unacknowledged_packets[destination] + curr_size
             curr_data -= curr_size * DataPacket.size
             self.send_data(range(next_packet_id, next_packet_id + curr_size), destination, 1, env)
             next_packet_id += curr_size
@@ -196,7 +197,7 @@ class Host(Device):
             if self.window_size[destination] < self.ss_thresh[destination]:
                 self.window_size[destination] += 1
             else:
-                self.window_size[destination] += 1 / self.window_size[destination]
+                self.window_size[destination] += (1 / self.window_size[destination])
         elif last_acknowledged[0] == packet_id:
             self.last_acknowledged[destination] = (packet_id, last_acknowledged[1] + 1)
 
@@ -211,6 +212,6 @@ class Host(Device):
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
-        if self.unacknowledged_packets[destination] < self.window_size[destination]:
+        if self.unacknowledged_packets[destination] < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
