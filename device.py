@@ -32,7 +32,9 @@ class Router(Device):
 
     def route(self, packet, env):
         # print('Routing sending data packet: ', packet.id, 'at', env.now)
-        env.process(self.routing_table[packet.destination].send_packet(packet=packet, source=self.ip, env=env))
+        next_hop_id = self.routing_table[packet.destination]
+        next_hop = self.links[next_hop_id]
+        env.process(next_hop.send_packet(packet=packet, source=self.ip, env=env))
 
     def recieve_router(self, packet, env):
         edge_weight = env.now - packet.time_sent
@@ -114,7 +116,7 @@ class Host(Device):
             yield env.timeout(timeout_wait)
             for p_id in id_range:
                 if self.retransmit_queue[destination][p_id]:
-                    print('Timeout for', p_id, 'occurred. Retransmitting it and rest of window and resetting timeout.')
+                    print('Time', env.now, 'Timeout for', p_id, 'occurred. Retransmitting it and rest of window and resetting timeout.')
                     self.ss_thresh[destination] = self.window_size[destination] / 2
                     self.window_size[destination] = 1
                     self.send_data(range(p_id, id_range[-1] + 1), destination, try_number + 1, env)
