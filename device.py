@@ -78,70 +78,64 @@ class Host(Device):
         self.unacknowledged_packets = {}
         self.window_size = {}
         self.ss_thresh = {}
-        self.graph_wsize = Graph("Window Size")
+        self.timeout_clock = {}
         self.timer = {}
-        self.retransmit_queue = {}
-        self.sending = {}
         self.last_acknowledged = {}
+        self.eof = {}
+        self.graph_wsize = Graph("Window Size")
 
         self.received = {}
 
     def get_timeout(self, destination):
-        if destination not in self.timer:
+        if destination not in self.timeout_clock:
             return 100
-        arrival_n = self.timer[destination][0]
-        deviation_n = self.timer[destination][1]
+        arrival_n = self.timeout_clock[destination][0]
+        deviation_n = self.timeout_clock[destination][1]
         return arrival_n + 4 * deviation_n
 
-    def update_timer(self, send_time, arrival_time, destination):
+    def update_timeout_clock(self, send_time, arrival_time, destination):
         travel_time = arrival_time - send_time
-        if destination not in self.timer:
-            self.timer[destination] = (travel_time, 0)
+        if destination not in self.timeout_clock:
+            self.timeout_clock[destination] = (travel_time, 0)
             return
-        arrival_n = self.timer[destination][0]
-        deviation_n = self.timer[destination][1]
+        arrival_n = self.timeout_clock[destination][0]
+        deviation_n = self.timeout_clock[destination][1]
         b = 0.7
 
         arrival_n1 = (1 - b) * arrival_n + b * travel_time
         deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n1)
-        self.timer[destination] = (arrival_n1, deviation_n1)
+        self.timeout_clock[destination] = (arrival_n1, deviation_n1)
 
-    def timeout(self, id_range, destination, try_number, env):
-        timeout_wait = self.get_timeout(destination) * (try_number)
-        for p_id in id_range:
-            self.retransmit_queue[destination][p_id] = True
-            packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
-            env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
+    def retransmit(self, destination, env):
+        p_id = self.last_acknowledged[destination][0]
+        self.send_data(p_id, destination, env)
+
+    def reset_timer(self, destination, try_number, env):
         try:
-            yield env.timeout(timeout_wait)
-            for p_id in id_range:
-                if self.retransmit_queue[destination][p_id]:
-                    print('Time', env.now, 'Timeout for', p_id, 'occurred. Retransmitting it and rest of window and resetting timeout.')
-                    self.ss_thresh[destination] = self.window_size[destination] / 2
-                    self.window_size[destination] = 1
-                    self.send_data(range(p_id, id_range[-1] + 1), destination, try_number + 1, env)
-                    self.graph_wsize.add_point(env.now, self.window_size[destination])
-                    break
-        except simpy.Interrupt:
-            for p_id in id_range:
-                if self.retransmit_queue[destination][p_id]:
-                    print('Duplicate acks for', p_id, 'occurred. Retransmitting it and rest of window and resetting timeout.')
-                    self.send_data(range(p_id, id_range[-1] + 1), destination, try_number + 1, env)
-                    break
+            yield env.timeout(self.get_timeout(destination) * try_number)
+            print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
+            self.ss_thresh[destination] = self.window_size[destination] / 2
+            self.window_size[destination] = 1
+            self.retransmit(destination, env)
+            self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
+        except simpy.Interrupt as message:
+            if message.cause == 'reset':
+                self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
+            elif message.cause == 'end':
+                pass
 
-    def send_data(self, id_range, destination, try_number, env):
-        send_proc = env.process(self.timeout(id_range, destination, try_number, env))
-        for i in id_range:
-            self.sending[destination][i] = send_proc
+    def send_data(self, p_id, destination, env):
+        packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
+        env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
     def start_flow(self, data, destination, env):
         self.window_size[destination] = 1
         self.unacknowledged_packets[destination] = 0
         self.flow_reactivate[destination] = env.event()
-        self.retransmit_queue[destination] = {}
         self.ss_thresh[destination] = 64
         self.last_acknowledged[destination] = (0, 0)
-        self.sending[destination] = {}
+        self.eof[destination] = math.ceil(data / DataPacket.size)
+        self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
         next_packet_id = 0
 
         curr_data = data
@@ -151,9 +145,13 @@ class Host(Device):
             curr_size = min(floored_window - self.unacknowledged_packets[destination], curr_packets)
             self.unacknowledged_packets[destination] = self.unacknowledged_packets[destination] + curr_size
             curr_data -= curr_size * DataPacket.size
-            self.send_data(range(next_packet_id, next_packet_id + curr_size), destination, 1, env)
+            for p_id in range(next_packet_id, next_packet_id + curr_size):
+                self.send_data(p_id, destination, env)
             next_packet_id += curr_size
             yield self.flow_reactivate[destination]
+
+    def end_flow(self, destination, env):
+        self.timer[destination].interrupt('end')
 
 
     def send_ack(self, packet_id, source, env):
@@ -187,9 +185,11 @@ class Host(Device):
         packet_id = packet.id
         destination = packet.source
         print('Received ack packet: ', packet_id, ' at ', env.now)
+        if packet_id == self.eof[destination]:
+            self.end_flow(destination, env)
+            return
+        self.timer[destination].interrupt('reset')
         last_acknowledged = self.last_acknowledged[destination]
-        for i in range(last_acknowledged[0], packet_id):
-            self.retransmit_queue[destination][i] = False
         if last_acknowledged[0] < packet_id:
             self.unacknowledged_packets[destination] -= 1
             self.last_acknowledged[destination] = (packet_id, 1)
@@ -202,10 +202,10 @@ class Host(Device):
 
         if last_acknowledged[1] == 4:
             self.ss_thresh[destination] = self.window_size[destination] / 2
-            self.window_size[destination] = self.window_size[destination] / 2
+            self.window_size[destination] = self.ss_thresh[destination]
             self.unacknowledged_packets[destination] -= 3
             print('Duplicate acks received. Fast Retransmitting.')
-            self.sending[destination][self.last_acknowledged[destination][0]].interrupt()
+            self.retransmit(destination, env)
         elif last_acknowledged[1] > 4:
             self.unacknowledged_packets[destination] -= 1
 
