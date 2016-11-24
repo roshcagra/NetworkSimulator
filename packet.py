@@ -19,10 +19,10 @@ class AckPacket(Packet):
 class RouterPacket(Packet):
     """TODO: Router Packet"""
     size = 64
-    def __init__(self, p_id, source, distance_table, time_sent):
+    def __init__(self, p_id, source, distance_table, buffer_cap):
         super(RouterPacket, self).__init__(p_id=p_id, source=source, destination=-1)
         self.distance_table = distance_table
-        self.time_sent = time_sent
+        self.buffer_cap = buffer_cap
         self.link = None
 
     # The link that the routerPacket came in on
