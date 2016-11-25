@@ -147,6 +147,7 @@ class Host(Device):
             self.window_size[destination] = 1
             self.retransmit(destination, env)
             self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
+            self.graph_wsize.add_point(env.now, self.window_size[destination])
         except simpy.Interrupt as message:
             if message.cause == 'reset':
                 self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
@@ -239,6 +240,7 @@ class Host(Device):
             print('Duplicate acks received. Fast Retransmitting.')
             self.ss_thresh[destination] = (self.get_curr_window_length(destination) / 2, False)
             self.window_size[destination] = self.ss_thresh[destination][0] + 3
+            self.timer[destination].interrupt('reset')
             self.retransmit(destination, env)
         elif self.last_acknowledged[destination][1] > 4:
             self.window_size[destination] += 1
