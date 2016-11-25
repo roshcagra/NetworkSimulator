@@ -2,6 +2,8 @@ import simpy
 from device import Host
 from device import Router
 from link import Link
+from graphing import Graph
+
 
 env = simpy.Environment()
 
@@ -69,8 +71,8 @@ def bell_it_up(env):
 	for router in devices:
 		print_routing_table(router)
 
-	print('LINK 0 COST INCREASE TO 20')
-	links[0].link_delay = 20
+	print('LINK 0 COST INCREASE !!!!!')
+	links[0].link_rate = 1
 
 	for i in range(200): # run 20 iterations 
 		for router in devices:
@@ -83,6 +85,15 @@ def bell_it_up(env):
 p = env.process(bell_it_up(env))
 env.run()
 
+
+for device in devices:
+    device_name = "Device " + str(device.ip)
+    # device.graph_wsize.set_name(device_name)
+    # device.graph_wsize.plot()
+    for l in range(0, len(device.links)):
+        link = device.links[l]
+        link.graph_buffocc.set_name(device_name + " " + "Link " + str(l))
+        link.graph_buffocc.plot()
 
 
 

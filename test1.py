@@ -7,11 +7,25 @@ from utils import dynamic_routing
 env = simpy.Environment()
 
 data1 = 1024 * 5000
+# devices = [Host(ip=0), Host(ip=1),
+# Router(ip=2, routing_table={0:0, 1:1}),
+# Router(ip=3, routing_table={0:0, 1:1}),
+# Router(ip=4, routing_table={0:0, 1:1}),
+# Router(ip=5, routing_table={0:1, 1:2})]
+# links = [Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env),
+# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+# Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env)
+# ]
+
+# routing table maps to link object, not the idx in list
 devices = [Host(ip=0), Host(ip=1),
-Router(ip=2, routing_table={0:0, 1:1}),
-Router(ip=3, routing_table={0:0, 1:1}),
-Router(ip=4, routing_table={0:0, 1:1}),
-Router(ip=5, routing_table={0:1, 1:2})]
+Router(ip=2),
+Router(ip=3),
+Router(ip=4),
+Router(ip=5)]
 links = [Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env),
 Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
 Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
@@ -19,6 +33,8 @@ Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
 Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
 Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env)
 ]
+
+
 
 #H1
 devices[0].add_link(links[0])
@@ -68,8 +84,19 @@ links[4].add_device(devices[5])
 links[5].add_device(devices[5])
 links[5].add_device(devices[1])
 
-p = env.process(flow(data1, 500, devices[0], 1, env))
+# host0 to router2, host1 to router5
+devices[2].routing_table = {0:links[0]}
+devices[5].routing_table = {1:links[5]}
+devices[2].distance_table = {0:0}
+devices[5].distance_table = {1:0}
+
+
+# are process r and p running in parallel?!
+r = env.process(dynamic_routing(devices, env))
+p = env.process(flow(data1, 5000, devices[0], 1, env))
+
 env.run()
+
 
 for device in devices:
     device_name = "Device " + str(device.ip)

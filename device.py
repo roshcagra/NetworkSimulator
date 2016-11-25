@@ -27,26 +27,45 @@ class Router(Device):
         else:
             self.routing_table = {}
 
+    # determines type of packet and calls correct recieving function
     def receive_packet(self, packet, env):
-        self.route(packet, env)
+        if isinstance(packet, DataPacket) or isinstance(packet, AckPacket):
+            self.route(packet, env)
+        elif isinstance(packet, RouterPacket):
+            self.recieve_router(packet, env)
 
+    # Routes data and ack packets
     def route(self, packet, env):
         # print('Routing sending data packet: ', packet.id, 'at', env.now)
-        next_hop_id = self.routing_table[packet.destination]
-        next_hop = self.links[next_hop_id]
+        if packet.destination not in self.routing_table:
+            print('packet dropped by router', self.ip)
+            return
+
+        next_hop = self.routing_table[packet.destination]
+
+        print('nex hop', next_hop)
+
         env.process(next_hop.send_packet(packet=packet, source=self.ip, env=env))
 
     def recieve_router(self, packet, env):
-        edge_weight = env.now - packet.time_sent
+        edge_weight = packet.buffer_occ
+
+        print(self.ip, self.distance_table)
 
         for key in packet.distance_table:
+            # print('me', self.ip)
+            # print('d tbl', self.distance_table)
+            # print('r tbl', self.routing_table)
+            # print(key)
+            # print('---------')
+
             if key not in self.distance_table: # a router we have never seen before
                 self.distance_table[key] = packet.distance_table[key] + edge_weight
                 self.routing_table[key] = packet.link
             elif packet.distance_table[key] + edge_weight < self.distance_table[key]: # this route offers a shorter path to 'key'
                 self.distance_table[key] = packet.distance_table[key] + edge_weight
                 self.routing_table[key] = packet.link
-            elif packet.distance_table[key] == 0: # 'key' is the origin of the packet
+            elif packet.source == key: # 'key' is the origin of the packet
                 if packet.link == self.routing_table[key]: # shortest path is directly from self.ip to key
                     if edge_weight != self.distance_table[key]: # edge weight has increased!!!
                         # self.distance_table[key] = packet.distance_table[key] + edge_weight
@@ -59,14 +78,19 @@ class Router(Device):
 
                         print('edge weight increase detected')
 
+
+        
+
         # print(self.ip, 'routing table:')
         # print(self.routing_table)
         # print('------------------------------')
 
     def send_router(self, env):
-        p_id = (env.now + 1) * 100 + self.ip # unique ID, assumes ip is less than 100
+        # p_id = (env.now + 1) * 100 + self.ip # unique ID, assumes ip is less than 100
+        p_id = -1
         for link in self.links:
-            router_packet = RouterPacket(p_id=p_id, source=self.ip, distance_table=self.distance_table, time_sent=env.now)
+            # Todo, buffer_occ=(link.buffer.capacity - link.buffer.level) could be changed to buffer_occ=(link.buffer.capacity - link.buffer.level)/link.buffer.capacity. (percent occupancy rather than the raw number of bits; if different links have different buffer capacities)
+            router_packet = RouterPacket(p_id=p_id, source=self.ip, distance_table=self.distance_table, buffer_occ=(link.buffer.capacity - link.buffer.level))
             router_packet.specify_link(link)
             env.process(link.send_packet(packet=router_packet, source=self.ip, env=env))
 
@@ -148,7 +172,7 @@ class Host(Device):
         while curr_data > 0:
             floored_window = math.floor(self.window_size[destination])
             curr_packets = math.ceil(curr_data / DataPacket.size)
-            curr_size = min(floored_window - self.unacknowledged_packets[destination], curr_packets)
+            curr_size = int(min(floored_window - self.unacknowledged_packets[destination], curr_packets))
             self.unacknowledged_packets[destination] = self.unacknowledged_packets[destination] + curr_size
             curr_data -= curr_size * DataPacket.size
             for p_id in range(next_packet_id, next_packet_id + curr_size):
