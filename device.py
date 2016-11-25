@@ -222,10 +222,7 @@ class Host(Device):
 
         self.timer[destination].interrupt('reset')
         if self.last_acknowledged[destination][0] < packet_id:
-            if self.last_acknowledged[destination][1] >= 4:
-                print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
-                self.window_size[destination] = self.ss_thresh[destination]
-            self.unacknowledged_packets[destination] -= packet_id - self.last_acknowledged[destination][0]
+            self.unacknowledged_packets[destination] -= 1
             self.last_acknowledged[destination] = (packet_id, 1)
             if self.window_size[destination] < self.ss_thresh[destination]:
                 self.window_size[destination] += 1
@@ -237,10 +234,11 @@ class Host(Device):
         if self.last_acknowledged[destination][1] == 4:
             print('Duplicate acks received. Fast Retransmitting.')
             self.ss_thresh[destination] = self.window_size[destination] / 2
-            self.window_size[destination] = self.window_size[destination] / 2 + 3
+            self.window_size[destination] = self.window_size[destination] / 2
+            self.unacknowledged_packets[destination] -= 3
             self.retransmit(destination, env)
         elif self.last_acknowledged[destination][1] > 4:
-            self.window_size[destination] += 1
+            self.unacknowledged_packets[destination] -= 1
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
