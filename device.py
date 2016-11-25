@@ -221,10 +221,10 @@ class Host(Device):
         if (self.last_acknowledged[destination][0] == packet_id - 1) and (packet_id - 1) in self.send_times[destination]:
             self.update_timeout_clock(self.send_times[destination][packet_id - 1], env.now, destination)
 
-        self.timer[destination].interrupt('reset')
         if self.last_acknowledged[destination][0] < packet_id:
+            self.timer[destination].interrupt('reset')
             self.window[destination] = (packet_id, self.window[destination][1])
-            if self.last_acknowledged[destination][1] >= 4:
+            if self.last_acknowledged[destination][1] >= 4 and not self.ss_thresh[destination][1]:
                 print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
                 self.window_size[destination] = self.ss_thresh[destination][0]
             self.last_acknowledged[destination] = (packet_id, 1)
