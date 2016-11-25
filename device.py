@@ -141,7 +141,9 @@ class Host(Device):
         try:
             yield env.timeout(self.get_timeout(destination) * try_number)
             print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
-            self.ss_thresh[destination] = self.window_size[destination] / 2
+            if not self.ss_thresh[destination][1]:
+                self.ss_thresh[destination] = (self.get_curr_window_length(destination) / 2, True)
+            print('new ss_thresh', self.ss_thresh[destination])
             self.window_size[destination] = 1
             self.retransmit(destination, env)
             self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
@@ -163,7 +165,7 @@ class Host(Device):
         self.window[destination] = (0, 0)
         self.window_size[destination] = 1
         self.flow_reactivate[destination] = env.event()
-        self.ss_thresh[destination] = float('inf')
+        self.ss_thresh[destination] = (float('inf'), False)
         self.last_acknowledged[destination] = (0, 0)
         self.send_times[destination] = {}
         self.eof[destination] = math.ceil(data / DataPacket.size)
@@ -224,9 +226,9 @@ class Host(Device):
             self.window[destination] = (packet_id, self.window[destination][1])
             if self.last_acknowledged[destination][1] >= 4:
                 print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
-                self.window_size[destination] = self.ss_thresh[destination]
+                self.window_size[destination] = self.ss_thresh[destination][0]
             self.last_acknowledged[destination] = (packet_id, 1)
-            if self.window_size[destination] < self.ss_thresh[destination]:
+            if self.window_size[destination] < self.ss_thresh[destination][0]:
                 self.window_size[destination] += 1
             else:
                 self.window_size[destination] += (1 / self.window_size[destination])
@@ -235,13 +237,15 @@ class Host(Device):
 
         if self.last_acknowledged[destination][1] == 4:
             print('Duplicate acks received. Fast Retransmitting.')
-            self.ss_thresh[destination] = self.window_size[destination] / 2
-            self.window_size[destination] = self.window_size[destination] / 2 + 3
+            self.ss_thresh[destination] = (self.get_curr_window_length(destination) / 2, False)
+            self.window_size[destination] = self.ss_thresh[destination][0] + 3
             self.retransmit(destination, env)
         elif self.last_acknowledged[destination][1] > 4:
             self.window_size[destination] += 1
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
+
+        print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
