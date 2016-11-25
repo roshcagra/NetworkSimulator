@@ -97,7 +97,7 @@ class Host(Device):
     def __init__(self, ip):
         Device.__init__(self, ip)
         self.flow_reactivate = {}
-        self.unacknowledged_packets = {}
+        self.window = {}
         self.window_size = {}
         self.ss_thresh = {}
         self.send_times = {}
@@ -108,6 +108,9 @@ class Host(Device):
         self.graph_wsize = Graph("Window Size")
 
         self.received = {}
+
+    def get_curr_window_length(self, destination):
+        return self.window[destination][1] - self.window[destination][0]
 
     def get_timeout(self, destination):
         if destination not in self.timeout_clock:
@@ -157,26 +160,22 @@ class Host(Device):
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
     def start_flow(self, data, destination, env):
+        self.window[destination] = (0, 0)
         self.window_size[destination] = 1
-        self.unacknowledged_packets[destination] = 0
         self.flow_reactivate[destination] = env.event()
         self.ss_thresh[destination] = float('inf')
         self.last_acknowledged[destination] = (0, 0)
         self.send_times[destination] = {}
         self.eof[destination] = math.ceil(data / DataPacket.size)
         self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
-        next_packet_id = 0
 
         curr_data = data
         while curr_data > 0:
-            floored_window = math.floor(self.window_size[destination])
-            curr_packets = math.ceil(curr_data / DataPacket.size)
-            curr_size = int(min(floored_window - self.unacknowledged_packets[destination], curr_packets))
-            self.unacknowledged_packets[destination] = self.unacknowledged_packets[destination] + curr_size
-            curr_data -= curr_size * DataPacket.size
-            for p_id in range(next_packet_id, next_packet_id + curr_size):
+            batch_size = math.floor(self.window_size[destination]) - self.get_curr_window_length(destination)
+            for p_id in range(self.window[destination][1], self.window[destination][1] + batch_size):
                 self.send_data(p_id, destination, False, env)
-            next_packet_id += curr_size
+            self.window[destination] = (self.window[destination][0], self.window[destination][1] + batch_size)
+            curr_data -= batch_size * DataPacket.size
             yield self.flow_reactivate[destination]
 
     def end_flow(self, destination, env):
@@ -222,7 +221,10 @@ class Host(Device):
 
         self.timer[destination].interrupt('reset')
         if self.last_acknowledged[destination][0] < packet_id:
-            self.unacknowledged_packets[destination] -= 1
+            self.window[destination] = (packet_id, self.window[destination][1])
+            if self.last_acknowledged[destination][1] >= 4:
+                print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
+                self.window_size[destination] = self.ss_thresh[destination]
             self.last_acknowledged[destination] = (packet_id, 1)
             if self.window_size[destination] < self.ss_thresh[destination]:
                 self.window_size[destination] += 1
@@ -234,17 +236,14 @@ class Host(Device):
         if self.last_acknowledged[destination][1] == 4:
             print('Duplicate acks received. Fast Retransmitting.')
             self.ss_thresh[destination] = self.window_size[destination] / 2
-            self.window_size[destination] = self.window_size[destination] / 2
-            self.unacknowledged_packets[destination] -= 3
+            self.window_size[destination] = self.window_size[destination] / 2 + 3
             self.retransmit(destination, env)
         elif self.last_acknowledged[destination][1] > 4:
-            self.unacknowledged_packets[destination] -= 1
+            self.window_size[destination] += 1
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
-        print(self.unacknowledged_packets[destination], self.window_size[destination])
-
-        if self.unacknowledged_packets[destination] < math.floor(self.window_size[destination]):
+        if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
 
