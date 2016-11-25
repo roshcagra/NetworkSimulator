@@ -114,7 +114,6 @@ class Host(Device):
             return 100
         arrival_n = self.timeout_clock[destination][0]
         deviation_n = self.timeout_clock[destination][1]
-        print('time', arrival_n + 4 * max(deviation_n, 1))
         return arrival_n + 4 * max(deviation_n, 1)
 
     def update_timeout_clock(self, send_time, arrival_time, destination):
@@ -224,7 +223,7 @@ class Host(Device):
         self.timer[destination].interrupt('reset')
         if self.last_acknowledged[destination][0] < packet_id:
             if self.last_acknowledged[destination][1] >= 4:
-                print('resetting', self.window_size[destination], self.ss_thresh[destination])
+                print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
                 self.window_size[destination] = self.ss_thresh[destination]
             self.unacknowledged_packets[destination] -= packet_id - self.last_acknowledged[destination][0]
             self.last_acknowledged[destination] = (packet_id, 1)
@@ -236,9 +235,9 @@ class Host(Device):
             self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
 
         if self.last_acknowledged[destination][1] == 4:
+            print('Duplicate acks received. Fast Retransmitting.')
             self.ss_thresh[destination] = self.window_size[destination] / 2
             self.window_size[destination] = self.window_size[destination] / 2 + 3
-            print('Duplicate acks received. Fast Retransmitting.')
             self.retransmit(destination, env)
         elif self.last_acknowledged[destination][1] > 4:
             self.window_size[destination] += 1
