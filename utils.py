@@ -9,4 +9,4 @@ def dynamic_routing(devices, sim_env):
 	    for device in devices:
 	        if isinstance(device, Router):
 	            device.send_router(sim_env)
-	    yield sim_env.timeout(100)
+	    yield sim_env.timeout(1000)

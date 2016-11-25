@@ -43,14 +43,12 @@ class Router(Device):
 
         next_hop = self.routing_table[packet.destination]
 
-        print('nex hop', next_hop)
-
         env.process(next_hop.send_packet(packet=packet, source=self.ip, env=env))
 
     def recieve_router(self, packet, env):
         edge_weight = packet.buffer_occ
 
-        print(self.ip, self.distance_table)
+        # print(self.ip, self.distance_table)
 
         for key in packet.distance_table:
             # print('me', self.ip)
@@ -79,7 +77,7 @@ class Router(Device):
                         print('edge weight increase detected')
 
 
-        
+
 
         # print(self.ip, 'routing table:')
         # print(self.routing_table)
@@ -116,19 +114,21 @@ class Host(Device):
             return 100
         arrival_n = self.timeout_clock[destination][0]
         deviation_n = self.timeout_clock[destination][1]
-        return arrival_n + 4 * deviation_n
+        print('time', arrival_n + 4 * max(deviation_n, 1))
+        return arrival_n + 4 * max(deviation_n, 1)
 
     def update_timeout_clock(self, send_time, arrival_time, destination):
         travel_time = arrival_time - send_time
         if destination not in self.timeout_clock:
-            self.timeout_clock[destination] = (travel_time, 0)
+            self.timeout_clock[destination] = (travel_time, travel_time / 2)
             return
         arrival_n = self.timeout_clock[destination][0]
         deviation_n = self.timeout_clock[destination][1]
-        b = 0.7
+        a = 1 / 8
+        b = 1 / 4
 
-        arrival_n1 = (1 - b) * arrival_n + b * travel_time
-        deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n1)
+        deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n)
+        arrival_n1 = (1 - a) * arrival_n + a * travel_time
         self.timeout_clock[destination] = (arrival_n1, deviation_n1)
 
     def retransmit(self, destination, env):
@@ -161,7 +161,7 @@ class Host(Device):
         self.window_size[destination] = 1
         self.unacknowledged_packets[destination] = 0
         self.flow_reactivate[destination] = env.event()
-        self.ss_thresh[destination] = 64
+        self.ss_thresh[destination] = float('inf')
         self.last_acknowledged[destination] = (0, 0)
         self.send_times[destination] = {}
         self.eof[destination] = math.ceil(data / DataPacket.size)
@@ -218,8 +218,8 @@ class Host(Device):
             self.end_flow(destination, env)
             return
 
-        if packet_id in self.send_times[destination]:
-            self.update_timeout_clock(self.send_times[destination][packet_id], env.now, destination)
+        if (self.last_acknowledged[destination][0] == packet_id - 1) and (packet_id - 1) in self.send_times[destination]:
+            self.update_timeout_clock(self.send_times[destination][packet_id - 1], env.now, destination)
 
         self.timer[destination].interrupt('reset')
         if self.last_acknowledged[destination][0] < packet_id:
