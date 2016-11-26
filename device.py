@@ -235,15 +235,14 @@ class Host(Device):
                 self.window_size[destination] += (1 / self.window_size[destination])
         elif self.last_acknowledged[destination][0] == packet_id:
             self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
-
-        if self.last_acknowledged[destination][1] == 4:
-            print('Duplicate acks received. Fast Retransmitting.')
-            self.ss_thresh[destination] = (self.get_curr_window_length(destination) / 2, False)
-            self.window_size[destination] = self.ss_thresh[destination][0] + 3
-            self.timer[destination].interrupt('reset')
-            self.retransmit(destination, env)
-        elif self.last_acknowledged[destination][1] > 4:
-            self.window_size[destination] += 1
+            if self.last_acknowledged[destination][1] == 4:
+                print('Duplicate acks received. Fast Retransmitting.')
+                self.ss_thresh[destination] = (self.window_size[destination] / 2, False)
+                self.window_size[destination] = self.ss_thresh[destination][0] + 3
+                self.retransmit(destination, env)
+                self.timer[destination].interrupt('reset')
+            elif self.last_acknowledged[destination][1] > 4:
+                self.window_size[destination] += 1
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
