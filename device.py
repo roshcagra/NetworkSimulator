@@ -13,6 +13,10 @@ class Device:
         self.ip = ip
         self.links = []
 
+        self.graph_dropped = Graph("Packet Loss")
+        self.graph_flowrate = Graph("Flow Rate")
+        self.graph_wsize = Graph("Window Size")
+
     def add_link(self, link):
         self.links.append(link)
 
@@ -21,31 +25,35 @@ class Router(Device):
     def __init__(self, ip, routing_table=None):
         Device.__init__(self, ip)
         self.distance_table = {ip : 0} # destination ip -> distance/cost/time. Would be more accurate to call 'time_table' since the weight we are measuring here is time
+        self.num_dropped = 0
+        self.type = "router"
 
         if routing_table != None: # routing table has been passed in
             self.routing_table = routing_table # destination ip -> link object (next hop)
         else:
             self.routing_table = {}
 
-    # determines type of packet and calls correct recieving function
+    # determines type of packet and calls correct receiveving function
     def receive_packet(self, packet, env):
         if isinstance(packet, DataPacket) or isinstance(packet, AckPacket):
             self.route(packet, env)
         elif isinstance(packet, RouterPacket):
-            self.recieve_router(packet, env)
+            self.receive_router(packet, env)
 
     # Routes data and ack packets
     def route(self, packet, env):
         # print('Routing sending data packet: ', packet.id, 'at', env.now)
         if packet.destination not in self.routing_table:
             print('packet dropped by router', self.ip)
+            self.num_dropped += 1
+            self.graph_dropped.add_point(env.now(), self.num_dropped)
             return
 
         next_hop = self.routing_table[packet.destination]
 
         env.process(next_hop.send_packet(packet=packet, source=self.ip, env=env))
 
-    def recieve_router(self, packet, env):
+    def receive_router(self, packet, env):
         edge_weight = packet.buffer_occ
 
         # print(self.ip, self.distance_table)
@@ -87,7 +95,8 @@ class Router(Device):
         # p_id = (env.now + 1) * 100 + self.ip # unique ID, assumes ip is less than 100
         p_id = -1
         for link in self.links:
-            # Todo, buffer_occ=(link.buffer.capacity - link.buffer.level) could be changed to buffer_occ=(link.buffer.capacity - link.buffer.level)/link.buffer.capacity. (percent occupancy rather than the raw number of bits; if different links have different buffer capacities)
+            # Todo, buffer_occ=(link.buffer.capacity - link.buffer.level) could be changed to buffer_occ=(link.buffer.capacity - link.buffer.level)/link.buffer.capacity.
+            # (percent occupancy rather than the raw number of bits; if different links have different buffer capacities)
             router_packet = RouterPacket(p_id=p_id, source=self.ip, distance_table=self.distance_table, buffer_occ=(link.buffer.capacity - link.buffer.level))
             router_packet.specify_link(link)
             env.process(link.send_packet(packet=router_packet, source=self.ip, env=env))
@@ -105,9 +114,12 @@ class Host(Device):
         self.timer = {}
         self.last_acknowledged = {}
         self.eof = {}
-        self.graph_wsize = Graph("Window Size")
-
         self.received = {}
+        self.num_received = 0
+        self.num_sent = 0
+        self.type = "host"
+
+
 
     def get_curr_window_length(self, destination):
         return self.window[destination][1] - self.window[destination][0]
@@ -155,6 +167,7 @@ class Host(Device):
                 pass
 
     def send_data(self, p_id, destination, is_retransmit, env):
+        self.num_sent += 1;
         if not is_retransmit:
             self.send_times[destination][p_id] = env.now
         else:
@@ -253,6 +266,9 @@ class Host(Device):
             self.flow_reactivate[destination] = env.event()
 
     def receive_packet(self, packet, env):
+        self.num_received += 1
+        if self.num_sent > 0:
+            self.graph_flowrate.add_point(env.now, self.num_received/self.num_sent)
         if isinstance(packet, DataPacket):
             self.receive_data(packet, env)
         elif isinstance(packet, AckPacket):

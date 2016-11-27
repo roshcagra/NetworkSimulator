@@ -3,6 +3,7 @@ class Packet(object):
         self.id = p_id
         self.source = source # ip
         self.destination = destination # ip
+        self.t_enterqueue = 0    # time it was put on queue
 
 class DataPacket(Packet):
     """TODO: Data Packet"""
