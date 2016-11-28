@@ -3,11 +3,11 @@ from Tkinter import *
 from tkSimpleDialog import askstring
 
 import simpy
-# from device import Host
-# from device import Router
-# from link import Link
-# from utils import flow
-# from utils import dynamic_routing
+from device import Host
+from device import Router
+from link import Link
+from utils import flow
+from utils import dynamic_routing
 env = simpy.Environment()
 
 class NetworkGUI(tk.Tk):
@@ -121,15 +121,17 @@ class NetworkGUI(tk.Tk):
 					links.append(link_val)
 					link_id.append(link)
 
-					#=========================
-					# connect the fucking links
 					devices[clicked_idx].add_link(link_val)
 					devices[idx].add_link(link_val)
 					link_val.add_device(devices[clicked_idx])
 					link_val.add_device(devices[idx])
 					if (device_id[clicked_idx][1] == 0 and device_id[idx][1] == 1) or (device_id[clicked_idx][1] == 1 and device_id[idx][1] == 0):
-						#do the routing table shit.
-					#==========================
+						if device_id[clicked_idx][1] == 0:
+							devices[idx].routing_table = {devices[clicked_idx].ip:link}
+							devices[idx].distance_table = {devices[clicked_idx].ip:0}
+						else:
+							devices[clicked_idx].routing_table = {devices[idx].ip:link}
+							devices[clicked_idx].distance_table = {devices[idx].ip:0}
 				else:
 					clicked_idx = idx
 					print clicked_idx
