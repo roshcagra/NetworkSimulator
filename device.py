@@ -49,7 +49,7 @@ class Router(Device):
             if debug_state:
                 print('packet dropped by router', self.ip)
             self.num_dropped += 1
-            self.graph_dropped.add_point(env.now(), self.num_dropped)
+            self.graph_dropped.add_point(env.now, self.num_dropped)
             return
 
         next_hop = self.routing_table[packet.destination]
