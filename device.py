@@ -6,6 +6,8 @@ from packet import RouterPacket
 
 from graphing import Graph
 
+debug_state = False
+
 aws = float('inf')
 
 class Device:
@@ -44,7 +46,8 @@ class Router(Device):
     def route(self, packet, env):
         # print('Routing sending data packet: ', packet.id, 'at', env.now)
         if packet.destination not in self.routing_table:
-            print('packet dropped by router', self.ip)
+            if debug_state:
+                print('packet dropped by router', self.ip)
             self.num_dropped += 1
             self.graph_dropped.add_point(env.now(), self.num_dropped)
             return
@@ -81,8 +84,8 @@ class Router(Device):
                                 # packet.link are now innacurate, since the edge_weight has changed
                                 # set distance to inf, and next cycle the path will be recalculated
                                 self.distance_table[k] = float('inf')
-
-                        print('edge weight increase detected')
+                        if debug_state:
+                            print('edge weight increase detected')
 
 
 
@@ -152,10 +155,12 @@ class Host(Device):
     def reset_timer(self, destination, try_number, env):
         try:
             yield env.timeout(self.get_timeout(destination) * try_number)
-            print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
+            if debug_state:
+                print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
             if not self.ss_thresh[destination][1]:
                 self.ss_thresh[destination] = (self.get_curr_window_length(destination) / 2, True)
-            print('new ss_thresh', self.ss_thresh[destination])
+            if debug_state:
+                print('new ss_thresh', self.ss_thresh[destination])
             self.window_size[destination] = 1
             self.retransmit(destination, env)
             self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
@@ -175,6 +180,7 @@ class Host(Device):
         packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
+
     def start_flow(self, data, destination, env):
         self.window[destination] = (0, 0)
         self.window_size[destination] = 1
@@ -187,7 +193,7 @@ class Host(Device):
 
         curr_data = data
         while curr_data > 0:
-            batch_size = math.floor(self.window_size[destination]) - self.get_curr_window_length(destination)
+            batch_size = int(math.floor(self.window_size[destination]) - self.get_curr_window_length(destination))
             for p_id in range(self.window[destination][1], self.window[destination][1] + batch_size):
                 self.send_data(p_id, destination, False, env)
             self.window[destination] = (self.window[destination][0], self.window[destination][1] + batch_size)
@@ -212,7 +218,8 @@ class Host(Device):
     def receive_data(self, packet, env):
         packet_id = packet.id
         packet_source = packet.source
-        print('Received data packet: ', packet_id, ' at ', env.now)
+        if debug_state:
+            print('Received data packet: ', packet_id, ' at ', env.now)
 
         if packet_source not in self.received:
             self.received[packet_source] = [packet_id]
@@ -227,7 +234,8 @@ class Host(Device):
     def receive_ack(self, packet, env):
         packet_id = packet.id
         destination = packet.source
-        print('Received ack packet: ', packet_id, ' at ', env.now)
+        if debug_state:
+            print('Received ack packet: ', packet_id, ' at ', env.now)
         if packet_id == self.eof[destination]:
             self.end_flow(destination, env)
             return
@@ -239,7 +247,8 @@ class Host(Device):
             self.timer[destination].interrupt('reset')
             self.window[destination] = (packet_id, self.window[destination][1])
             if self.last_acknowledged[destination][1] >= 4 and not self.ss_thresh[destination][1]:
-                print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
+                if debug_state:
+                    print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
                 self.window_size[destination] = self.ss_thresh[destination][0]
             self.last_acknowledged[destination] = (packet_id, 1)
             if self.window_size[destination] < self.ss_thresh[destination][0]:
@@ -249,7 +258,8 @@ class Host(Device):
         elif self.last_acknowledged[destination][0] == packet_id:
             self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
             if self.last_acknowledged[destination][1] == 4:
-                print('Duplicate acks received. Fast Retransmitting.')
+                if debug_state:
+                    print('Duplicate acks received. Fast Retransmitting.')
                 self.ss_thresh[destination] = (self.window_size[destination] / 2, False)
                 self.window_size[destination] = self.ss_thresh[destination][0] + 3
                 self.retransmit(destination, env)
@@ -259,7 +269,8 @@ class Host(Device):
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
-        print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
+        if debug_state:
+            print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()

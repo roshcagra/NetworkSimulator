@@ -91,9 +91,11 @@ devices[2].distance_table = {0:0}
 devices[5].distance_table = {1:0}
 
 
-# are process r and p running in parallel?!
-r = env.process(dynamic_routing(devices, env))
 p = env.process(flow(data1, 5000, devices[0], 1, env))
+r = env.process(dynamic_routing(devices=devices, interval=100, sim_env=env, events=[p])) 
+# events is the list of other processes besides the routing process. once all the events have been processed
+# the dynamic routing process knows to stop.
+
 
 env.run()
 
