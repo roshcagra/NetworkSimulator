@@ -1,6 +1,11 @@
-import Tkinter as tk
-from Tkinter import *
-from tkSimpleDialog import askstring
+try:
+	import Tkinter as tk
+	from Tkinter import *
+	from tkSimpleDialog import askstring
+except ImportError:
+	import tkinter as tk
+	from tkinter import *
+	from tkinter.simpledialog import askstring
 
 import simpy
 from device import Host
@@ -90,7 +95,6 @@ class NetworkGUI(tk.Tk):
 		global link_id
 
 		clicked_idx = -1
-		print event.x, event.y
 		for idx in range(len(devices)):
 			coord = self.canvas.coords(device_id[idx][0])
 			if coord[0] < event.x < coord[2] and coord[1] < event.y < coord[3]:
@@ -134,11 +138,9 @@ class NetworkGUI(tk.Tk):
 							devices[clicked_idx].distance_table = {devices[idx].ip:0}
 				else:
 					clicked_idx = idx
-					print clicked_idx
 					break
 			else:
 				clicked_idx = -1
-		print clicked_idx
 
 if __name__ == "__main__":
 	root = NetworkGUI()
