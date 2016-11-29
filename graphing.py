@@ -1,15 +1,21 @@
 import matplotlib.pyplot as plt
 
 class Graph:
-    def __init__(self, title):
+    def __init__(self, title, filename):
         self.title = title
         self.time = []  # x axis
         self.val = []   # y axis
         self.name = ''
+        self.filename = filename
 
     def add_point(self, time, value):
         self.time.append(time)
         self.val.append(value)
+
+        # Write to external file for plotting on a seperate python script
+        file = open("data/" + self.filename + ".txt","a")
+        file.write(str(time) + "," + str(value) + "\n")
+        file.close()
 
         # if len(self.time) > 50: # Arbitrary graph scrolling window size
         #     self.time.pop(0)

@@ -15,9 +15,9 @@ class Device:
         self.ip = ip
         self.links = []
 
-        self.graph_dropped = Graph("Packet Loss")
-        self.graph_flowrate = Graph("Flow Rate")
-        self.graph_wsize = Graph("Window Size")
+        self.graph_dropped = Graph("Packet Loss", "loss")
+        self.graph_flowrate = Graph("Flow Rate", "flowrate")
+        self.graph_wsize = Graph("Window Size", "wsize")
 
     def add_link(self, link):
         self.links.append(link)
