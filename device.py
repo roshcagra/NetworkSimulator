@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = False
+debug_state = True
 
 aws = float('inf')
 
@@ -136,6 +136,7 @@ class Host(Device):
 
     def update_timeout_clock(self, send_time, arrival_time, destination):
         travel_time = arrival_time - send_time
+        print('New travel time:', travel_time)
         if destination not in self.timeout_clock:
             self.timeout_clock[destination] = (travel_time, travel_time / 2)
             return
