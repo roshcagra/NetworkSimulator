@@ -14,8 +14,6 @@ fig.set_tight_layout(True)
 # ax2 = fig.add_subplot(1,2,1)
 axes = {}
 axes["wsize"] = fig.add_subplot(6,1,1)
-
-
 axes["flowrate"] = fig.add_subplot(6,1,2)
 axes["linkrate"] = fig.add_subplot(6,1,3)
 axes["delay"] = fig.add_subplot(6,1,4)

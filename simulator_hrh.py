@@ -44,8 +44,9 @@ for device in devices:
     device.graph_flowrate.plot()
     for l in range(0, len(device.links)):
         link = device.links[l]
-        link_name = "Link " + str(l)
-        link.graph_buffocc.set_name(device_name + " " + link_name)
+        link.graph_buffocc.set_name(device_name + " " + "Link " + str(l))
         link.graph_buffocc.plot()
-        link.graph_delay.set_name(device_name + " " + link_name)
+        link.graph_linkrate.set_name(device_name + " " + "Link " + str(l))
+        link.graph_linkrate.plot()
+        link.graph_delay.set_name(device_name + " " + "Link " + str(l))
         link.graph_delay.plot()
