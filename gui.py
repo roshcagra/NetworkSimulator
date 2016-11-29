@@ -27,7 +27,7 @@ class NetworkGUI(tk.Tk):
 
 	def run(self):
 		global devices
-		r = env.process(dynamic_routing(devices, env))
+		r = env.process(dynamic_routing(devices, 500, env))
 		env.run()
 		for device in devices:
 		    device_name = "Device " + str(device.ip)
@@ -79,7 +79,7 @@ class NetworkGUI(tk.Tk):
 					device_id.append([device, 0])
 					devices.append(Host(ip=entry2.get()))
 					master.destroy()
-				elif entry2.get() == "router":
+				elif entry1.get() == "router":
 					device = self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10, fill="green")
 					device_id.append([device, 1])
 					devices.append(Router(ip=entry2.get()))
@@ -93,10 +93,11 @@ class NetworkGUI(tk.Tk):
 		global device_id
 		global links
 		global link_id
+		global clicked_idx
 
-		clicked_idx = -1
 		for idx in range(len(devices)):
 			coord = self.canvas.coords(device_id[idx][0])
+			print(clicked_idx)
 			if coord[0] < event.x < coord[2] and coord[1] < event.y < coord[3]:
 				if clicked_idx != -1:
 					master = Tk()
@@ -112,23 +113,30 @@ class NetworkGUI(tk.Tk):
 					entry2.grid(row=1, column=1)
 
 					label=Label(master, text="Max Buffer Size", font=10)
-					label.grid(row=1)
+					label.grid(row=2)
 					entry3 = Entry(master)
-					entry3.grid(row=1, column=1)
+					entry3.grid(row=2, column=1)
 
 					cor1_x = self.canvas.coords(device_id[clicked_idx][0])[0] + 10
 					cor1_y = self.canvas.coords(device_id[clicked_idx][0])[1] + 10
 					cor2_x = self.canvas.coords(device_id[idx][0])[0] + 10
 					cor2_y = self.canvas.coords(device_id[idx][0])[1] + 10
 					link = self.canvas.create_line(cor1_x, cor1_y, cor2_x, cor2_y)
-					link_val = Link(link_rate=int(entry1.get()), link_delay=int(entry2.get()), max_buffer_size=int(entry3.get()), env=env)
-					links.append(link_val)
-					link_id.append(link)
 
-					devices[clicked_idx].add_link(link_val)
-					devices[idx].add_link(link_val)
-					link_val.add_device(devices[clicked_idx])
-					link_val.add_device(devices[idx])
+					def create_link():
+						link_val = Link(link_rate=int(entry1.get()), link_delay=int(entry2.get()), max_buffer_size=int(entry3.get()), env=env)
+						links.append(link_val)
+						link_id.append(link)
+
+						devices[clicked_idx].add_link(link_val)
+						devices[idx].add_link(link_val)
+						link_val.add_device(devices[clicked_idx])
+						link_val.add_device(devices[idx])
+						master.destroy()
+
+					button1=Button(master, text="Create", command=create_link)
+					button1.grid(row=4, column=1)
+
 					if (device_id[clicked_idx][1] == 0 and device_id[idx][1] == 1) or (device_id[clicked_idx][1] == 1 and device_id[idx][1] == 0):
 						if device_id[clicked_idx][1] == 0:
 							devices[idx].routing_table = {devices[clicked_idx].ip:link}
@@ -151,4 +159,5 @@ if __name__ == "__main__":
 	device_id = []
 	links = []
 	link_id = []
+	clicked_idx = -1
 	root.mainloop()
