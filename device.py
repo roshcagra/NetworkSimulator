@@ -122,8 +122,6 @@ class Host(Device):
         self.num_sent = 0
         self.type = "host"
 
-
-
     def get_curr_window_length(self, destination):
         return self.window[destination][1] - self.window[destination][0]
 
@@ -165,6 +163,7 @@ class Host(Device):
             self.window_size[destination] = 1
             self.retransmit(destination, env)
             self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
+            self.window[destination] = (self.window[destination][0], self.window[destination][0] + 1)
             self.graph_wsize.add_point(env.now, self.window_size[destination])
         except simpy.Interrupt as message:
             if message.cause == 'reset':
@@ -190,20 +189,20 @@ class Host(Device):
         self.ss_thresh[destination] = (float('inf'), False)
         self.last_acknowledged[destination] = (0, 0)
         self.send_times[destination] = {}
-        self.eof[destination] = math.ceil(data / DataPacket.size)
+        self.eof[destination] = math.ceil(data / DataPacket.size) + 1
         self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
 
-        curr_data = data
-        while curr_data > 0:
+        while not self.window[destination][1] >= self.eof[destination]:
             batch_size = int(math.floor(self.window_size[destination]) - self.get_curr_window_length(destination))
             for p_id in range(self.window[destination][1], self.window[destination][1] + batch_size):
                 self.send_data(p_id, destination, False, env)
             self.window[destination] = (self.window[destination][0], self.window[destination][1] + batch_size)
-            curr_data -= batch_size * DataPacket.size
             yield self.flow_reactivate[destination]
 
     def end_flow(self, destination, env):
-        self.timer[destination].interrupt('end')
+        print(self.timer[destination].is_alive)
+        if self.timer[destination].is_alive:
+            self.timer[destination].interrupt('end')
 
     def send_ack(self, packet_id, source, env):
         env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
@@ -220,8 +219,6 @@ class Host(Device):
     def receive_data(self, packet, env):
         packet_id = packet.id
         packet_source = packet.source
-        if debug_state:
-            print('Received data packet: ', packet_id, ' at ', env.now)
 
         if packet_source not in self.received:
             self.received[packet_source] = [packet_id]
@@ -236,8 +233,6 @@ class Host(Device):
     def receive_ack(self, packet, env):
         packet_id = packet.id
         destination = packet.source
-        if debug_state:
-            print('Received ack packet: ', packet_id, ' at ', env.now)
         if packet_id == self.eof[destination]:
             self.end_flow(destination, env)
             return
@@ -247,7 +242,7 @@ class Host(Device):
 
         if self.last_acknowledged[destination][0] < packet_id:
             self.timer[destination].interrupt('reset')
-            self.window[destination] = (packet_id, self.window[destination][1])
+            self.window[destination] = (packet_id, max(self.window[destination][1], packet_id))
             if self.last_acknowledged[destination][1] >= 4 and not self.ss_thresh[destination][1]:
                 if debug_state:
                     print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
@@ -272,13 +267,17 @@ class Host(Device):
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
         if debug_state:
+            print('Flight', self.window[destination])
             print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
+            print('reactivated')
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
 
     def receive_packet(self, packet, env):
+        if debug_state:
+            print('Time', env.now, 'Host received', packet.__class__.__name__, packet.id, 'from Device', packet.source)
         self.num_received += 1
         if self.num_sent > 0:
             self.graph_flowrate.add_point(env.now, self.num_received/self.num_sent)

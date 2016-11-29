@@ -1,7 +1,7 @@
 import simpy
 from graphing import Graph
 
-debug_state = False
+debug_state = True
 
 class Link:
     def __init__(self, link_rate, link_delay, max_buffer_size, env):

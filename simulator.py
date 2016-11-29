@@ -8,7 +8,7 @@ import matplotlib.animation as animation
 
 env = simpy.Environment()
 
-data1 = 1024 * 12000
+data1 = 1024 * 1000
 devices = [Host(ip=0), Host(ip=1)]
 links = [Link(link_rate=(2.578 * 10 ** 11), link_delay=10, max_buffer_size=64000, env=env)]
 
