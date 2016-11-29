@@ -172,11 +172,12 @@ class Host(Device):
                 pass
 
     def send_data(self, p_id, destination, is_retransmit, env):
-        self.num_sent += 1;
+        self.num_sent += 1
         if not is_retransmit:
             self.send_times[destination][p_id] = env.now
         else:
             self.send_times[destination].pop(p_id, None)
+        print('Sending data packet', p_id, 'at', env.now)
         packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
