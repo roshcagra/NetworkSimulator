@@ -61,3 +61,6 @@ class Link:
                 self.last_dest = (destination, env.now + self.link_delay)
             yield env.timeout(self.link_delay)
             self.devices[destination].receive_packet(packet, env)
+        else:
+            if debug_state:
+                print('Time', env.now, 'Link dropped', packet.__class__.__name__, packet.id, 'from Device', source, 'to Device', destination)
