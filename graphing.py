@@ -1,4 +1,11 @@
-#import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib import pyplot as plt
+
+
+# import matplotlib.pyplot as plt
+
+
 
 class Graph:
     def __init__(self, title, filename):
@@ -9,6 +16,12 @@ class Graph:
         self.filename = filename
 
     def add_point(self, time, value):
+        # if self.time[-1] == time:
+        #     self.val[-1] += value
+        # else:
+        #     self.time.append(time)
+        #     self.val.append(value)
+
         self.time.append(time)
         self.val.append(value)
 

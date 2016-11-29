@@ -14,13 +14,19 @@ fig.set_tight_layout(True)
 # ax2 = fig.add_subplot(1,2,1)
 axes = {}
 axes["wsize"] = fig.add_subplot(6,1,1)
-
-
 axes["flowrate"] = fig.add_subplot(6,1,2)
 axes["linkrate"] = fig.add_subplot(6,1,3)
 axes["delay"] = fig.add_subplot(6,1,4)
 axes["dropped"] = fig.add_subplot(6,1,5)
 axes["buffocc"] = fig.add_subplot(6,1,6)
+
+data = {}
+data["wsize"] = [[], []]
+data["flowrate"] = [[], []]
+data["linkrate"] = [[], []]
+data["delay"] = [[], []]
+data["dropped"] = [[], []]
+data["buffocc"] = [[], []]
 
 def animate(i):
     for filename, ax in axes.items():
@@ -28,10 +34,11 @@ def animate(i):
         #ax.xlabel('time (ms)')
         path = "data/" + filename + ".txt"
         try:
-            pullData = open(path ,"r").read()
+            f = open(path ,"r")
+            pullData = f.read()
             dataArray = pullData.split('\n')
-            xar = []
-            yar = []
+            xar = data[filename][0]
+            yar = data[filename][1]
             # if len(xar) > 50:
             #     ax.set_xlim([xar[0], max(xar[0],xar[49])])
             for eachLine in dataArray:
@@ -39,20 +46,26 @@ def animate(i):
                     x,y = eachLine.split(',')
                     xar.append(float(x))
                     yar.append(float(y))
-                    if len(xar) > 1000:
-                        xar.pop(0)
-                        yar.pop(0)
+                    # if len(xar) > 1000:
+                    #     xar.pop(0)
+                    #     yar.pop(0)
+            f.close()
+            open(path ,"w").close() # Clear text file
 
             ax.clear()
             ax.set_ylabel(filename)
             ax.set_xlabel("time")
 
-            if len(yar) > 0:
-                ax.set_ylim([0, max(yar)])
+            # if len(yar) > 0:
+            #     ax.set_ylim([0, max(yar)])
             ax.plot(xar,yar)
         except IOError as e:
             continue
 
+# Initial clearing
+for filename, ax in axes.items():
+    path = "data/" + filename + ".txt"
+    open(path ,"w").close() # Clear text file
 
 ani = animation.FuncAnimation(fig, animate, interval=10)
 plt.show()

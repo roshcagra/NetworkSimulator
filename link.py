@@ -1,7 +1,7 @@
 import simpy
 from graphing import Graph
 
-debug_state = False
+debug_state = True
 
 class Link:
     def __init__(self, link_rate, link_delay, max_buffer_size, env):
@@ -13,8 +13,13 @@ class Link:
         self.last_dest = (-1, 0)
         self.graph_buffocc = Graph("Buffer Occupancy", "buffocc")
         self.graph_delay = Graph("Packet Delay", "delay")
+        self.graph_linkrate = Graph("Link Rate", "linkrate")
+        self.graph_dropped = Graph("Packet Loss", "dropped")
+        self.current_dropped = 0 # number of packets dropped at this time
+        self.last_dropped_time = 0
         self.sum_queued = 0     # number of packets that have ever been queued
         self.sum_queuetime = 0  # sum of all queue wait times
+        self.sum_packets = 0 # sum of sizes of all sent packets
 
     def add_device(self, device):
         self.devices[device.ip] = device
@@ -32,7 +37,6 @@ class Link:
         self.buffer.put(packet_size)
         self.sum_queued += 1
         self.sum_queuetime += env.now - packet.t_enterqueue
-        self.graph_delay.add_point(env.now, self.sum_queuetime / self.sum_queued)
 
     def send_packet(self, packet, source, env):
         destination = -1
@@ -41,10 +45,17 @@ class Link:
                 destination = ip
 
         if self.insert_into_buffer(packet, packet.size, env):
+            time_enter_queue = env.now
             # Buffer++
-            if packet.__class__.__name__ == "DataPacket":
-                self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+            self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+            self.sum_packets += packet.size
 
+            self.graph_dropped.add_point(env.now, self.current_dropped)
+            self.current_dropped = 0
+            self.graph_dropped.add_point(env.now, self.current_dropped)
+
+            if env.now > 0:
+                self.graph_linkrate.add_point(env.now, self.sum_packets/env.now)
             with self.send.request() as req:  # Generate a request event
                 yield req
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
@@ -60,7 +71,14 @@ class Link:
 
                 self.last_dest = (destination, env.now + self.link_delay)
             yield env.timeout(self.link_delay)
+            self.graph_delay.add_point(env.now, env.now - time_enter_queue)
             self.devices[destination].receive_packet(packet, env)
         else:
+            if env.now == self.last_dropped_time:
+                self.current_dropped += 1
+            else:
+                self.last_dropped_time = env.now
+                self.current_dropped = 1
+
             if debug_state:
                 print('Time', env.now, 'Link dropped', packet.__class__.__name__, packet.id, 'from Device', source, 'to Device', destination)

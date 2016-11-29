@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = False
+debug_state = True
 
 aws = float('inf')
 
@@ -15,7 +15,6 @@ class Device:
         self.ip = ip
         self.links = []
 
-        self.graph_dropped = Graph("Packet Loss", "loss")
         self.graph_flowrate = Graph("Flow Rate", "flowrate")
         self.graph_wsize = Graph("Window Size", "wsize")
 
@@ -27,7 +26,6 @@ class Router(Device):
     def __init__(self, ip, routing_table=None):
         Device.__init__(self, ip)
         self.distance_table = {ip : 0} # destination ip -> distance/cost/time. Would be more accurate to call 'time_table' since the weight we are measuring here is time
-        self.num_dropped = 0
         self.type = "router"
 
         if routing_table != None: # routing table has been passed in
@@ -48,8 +46,6 @@ class Router(Device):
         if packet.destination not in self.routing_table:
             if debug_state:
                 print('packet dropped by router', self.ip)
-            self.num_dropped += 1
-            self.graph_dropped.add_point(env.now, self.num_dropped)
             return
 
         next_hop = self.routing_table[packet.destination]
@@ -162,11 +158,12 @@ class Host(Device):
                 self.ss_thresh[destination] = (self.get_curr_window_length(destination) / 2, True)
             if debug_state:
                 print('new ss_thresh', self.ss_thresh[destination])
+            self.graph_wsize.add_point(env.now, self.window_size[destination])
             self.window_size[destination] = 1
+            self.graph_wsize.add_point(env.now, self.window_size[destination])
             self.retransmit(destination, env)
             self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
             self.window[destination] = (self.window[destination][0], self.window[destination][0] + 1)
-            self.graph_wsize.add_point(env.now, self.window_size[destination])
         except simpy.Interrupt as message:
             if message.cause == 'reset':
                 self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
@@ -239,6 +236,8 @@ class Host(Device):
         if packet_id == self.eof[destination]:
             self.end_flow(destination, env)
             return
+
+        self.graph_wsize.add_point(env.now, self.window_size[destination])
 
         if (self.last_acknowledged[destination][0] == packet_id - 1) and (packet_id - 1) in self.send_times[destination]:
             self.update_timeout_clock(self.send_times[destination][packet_id - 1], env.now, destination)
