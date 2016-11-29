@@ -11,8 +11,8 @@ class Link:
         self.send = simpy.Resource(env, capacity=1)
         self.buffer = simpy.Container(env, init=max_buffer_size, capacity=max_buffer_size)
         self.last_dest = (-1, 0)
-        self.graph_buffocc = Graph("Buffer Occupancy")
-        self.graph_delay = Graph("Packet Delay")
+        self.graph_buffocc = Graph("Buffer Occupancy", "buffocc")
+        self.graph_delay = Graph("Packet Delay", "delay")
         self.sum_queued = 0     # number of packets that have ever been queued
         self.sum_queuetime = 0  # sum of all queue wait times
 
