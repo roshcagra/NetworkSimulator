@@ -14,7 +14,7 @@ class Link:
         self.graph_buffocc = Graph("Buffer Occupancy", "buffocc")
         self.graph_delay = Graph("Packet Delay", "delay")
         self.graph_linkrate = Graph("Link Rate", "linkrate")
-        self.graph_dropped = Graph("Packet Loss", "loss")
+        self.graph_dropped = Graph("Packet Loss", "dropped")
         self.current_dropped = 0 # number of packets dropped at this time
         self.last_dropped_time = 0
         self.sum_queued = 0     # number of packets that have ever been queued
