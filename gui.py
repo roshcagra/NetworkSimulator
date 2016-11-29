@@ -38,7 +38,7 @@ class NetworkGUI(tk.Tk):
 		global device_id
 		global links
 		global link_id
-		if even.keysym == 'q':
+		if event.keysym == 'q':
 			quit()
 		elif event.keysym == 'c':
 			devices = []
