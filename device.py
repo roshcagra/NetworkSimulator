@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = True
+debug_state = False
 
 aws = float('inf')
 
@@ -59,6 +59,7 @@ class Router(Device):
     def receive_router(self, packet, env):
         edge_weight = packet.buffer_occ
 
+        # print('Router', self.ip, 'received routing packet', packet.distance_table)
         # print(self.ip, self.distance_table)
 
         for key in packet.distance_table:
@@ -134,7 +135,8 @@ class Host(Device):
 
     def update_timeout_clock(self, send_time, arrival_time, destination):
         travel_time = arrival_time - send_time
-        print('New travel time:', travel_time)
+        if debug_state:
+            print('New travel time:', travel_time)
         if destination not in self.timeout_clock:
             self.timeout_clock[destination] = (travel_time, travel_time / 2)
             return
@@ -177,10 +179,10 @@ class Host(Device):
             self.send_times[destination][p_id] = env.now
         else:
             self.send_times[destination].pop(p_id, None)
-        print('Sending data packet', p_id, 'at', env.now)
+        if debug_state:
+            print('Sending DataPacket', p_id, 'at', env.now)
         packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
-
 
     def start_flow(self, data, destination, env):
         self.window[destination] = (0, 0)
@@ -193,10 +195,11 @@ class Host(Device):
         self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
 
         while not self.window[destination][1] >= self.eof[destination]:
-            batch_size = int(math.floor(self.window_size[destination]) - self.get_curr_window_length(destination))
-            for p_id in range(self.window[destination][1], self.window[destination][1] + batch_size):
+            max_batch_size = int(math.floor(self.window_size[destination]) - self.get_curr_window_length(destination))
+            window_end_id = min(self.window[destination][1] + max_batch_size, self.eof[destination])
+            for p_id in range(self.window[destination][1], window_end_id):
                 self.send_data(p_id, destination, False, env)
-            self.window[destination] = (self.window[destination][0], self.window[destination][1] + batch_size)
+            self.window[destination] = (self.window[destination][0], window_end_id)
             yield self.flow_reactivate[destination]
 
     def end_flow(self, destination, env):
@@ -271,7 +274,6 @@ class Host(Device):
             print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
-            print('reactivated')
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
 
