@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = True
+debug_state = False
 
 aws = float('inf')
 
