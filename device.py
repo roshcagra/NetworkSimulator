@@ -108,12 +108,18 @@ class Host(Device):
         self.flow_reactivate = {}
         self.window = {}
         self.window_size = {}
-        self.ss_thresh = {}
         self.send_times = {}
-        self.timeout_clock = {}
-        self.timer = {}
         self.last_acknowledged = {}
         self.eof = {}
+        self.tcp_type = {}
+        self.timer = {}
+
+        # TCP Reno
+        self.ss_thresh = {}
+        self.timeout_clock = {}
+        # FAST TCP
+        self.fast_RTT = {}
+
         self.received = {}
         self.num_received = 0
         self.num_sent = 0
@@ -170,10 +176,10 @@ class Host(Device):
                 pass
 
     def send_data(self, p_id, destination, is_retransmit, env):
-        self.num_sent += 1
         if not is_retransmit:
             self.send_times[destination][p_id] = env.now
         else:
+            self.num_sent += 1
             self.send_times[destination].pop(p_id, None)
         if debug_state:
             print('Sending DataPacket', p_id, 'at', env.now)
@@ -182,8 +188,10 @@ class Host(Device):
 
     def start_flow(self, data, destination, env, tcp_type='Reno'):
         if tcp_type == 'Reno':
+            self.tcp_type[destination] = 'Reno'
             env.process(self.start_tcp_flow(data, destination, env))
-        elif tcp_type == 'Fast':
+        elif tcp_type == 'FAST':
+            self.tcp_type[destination] = 'FAST'
             env.process(self.start_fast_flow(data, destination, env))
 
     def start_tcp_flow(self, data, destination, env):
@@ -205,40 +213,35 @@ class Host(Device):
             yield self.flow_reactivate[destination]
 
     def start_fast_flow(self, data, destination, env):
-        pass
+        self.window[destination] = (0, 0)
+        self.window_size[destination] = 1
+        self.flow_reactivate[destination] = env.event()
+        self.last_acknowledged[destination] = (0, 0)
+        self.send_times[destination] = {}
+        self.eof[destination] = math.ceil(data / DataPacket.size) + 1
+        self.fast_RTT[destination] = (float('inf'), float('inf'))
+        self.timer[destination] = env.process(self.update_window(destination, env))
+
+        while not self.window[destination][1] >= self.eof[destination]:
+            max_batch_size = int(math.floor(self.window_size[destination]) - self.get_curr_window_length(destination))
+            window_end_id = min(self.window[destination][1] + max_batch_size, self.eof[destination])
+            for p_id in range(self.window[destination][1], window_end_id):
+                self.send_data(p_id, destination, False, env)
+            self.window[destination] = (self.window[destination][0], window_end_id)
+            yield self.flow_reactivate[destination]
 
     def end_flow(self, destination, env):
-        print(self.timer[destination].is_alive)
         if self.timer[destination].is_alive:
             self.timer[destination].interrupt('end')
 
-    def send_ack(self, packet_id, source, env):
-        env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
-
-    def get_next_ack(self, packet_source):
-        received = self.received[packet_source]
-        expected = 0
-        for i in received:
-            if i != expected:
-                return expected
-            expected += 1
-        return expected
-
-    def receive_data(self, packet, env):
-        packet_id = packet.id
-        packet_source = packet.source
-
-        if packet_source not in self.received:
-            self.received[packet_source] = [packet_id]
-        elif packet_id in self.received[packet_source]:
-            return
-        else:
-            self.received[packet_source].append(packet_id)
-            self.received[packet_source].sort()
-
-        self.send_ack(self.get_next_ack(packet_source), packet_source, env)
-
     def receive_ack(self, packet, env):
+        destination = packet.source
+        if self.tcp_type[destination] == 'Reno':
+            self.receive_tcp_ack(packet, env)
+        elif self.tcp_type[destination] == 'FAST':
+            self.receive_fast_ack(packet, env)
+
+    def receive_tcp_ack(self, packet, env):
         packet_id = packet.id
         destination = packet.source
         if packet_id == self.eof[destination]:
@@ -283,6 +286,82 @@ class Host(Device):
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
+
+    def update_window(self, destination, env):
+        try:
+            while True:
+                yield env.timeout(20)
+                (base_rtt, last_rtt) = self.fast_RTT[destination]
+                curr_wsize = self.window_size[destination]
+                g = 0.05
+                a = 15
+                self.window_size[destination] = min(2 * curr_wsize, (1 - g) * curr_wsize + g * ((base_rtt / last_rtt) * curr_wsize + a))
+        except simpy.Interrupt:
+            return
+
+    def update_rtt(self, send_time, arrival_time, destination):
+        new_RTT = arrival_time - send_time
+        new_base_RTT = min(self.fast_RTT[destination][0], new_RTT)
+        self.fast_RTT[destination] = (new_base_RTT, new_RTT)
+
+    def receive_fast_ack(self, packet, env):
+        packet_id = packet.id
+        destination = packet.source
+        if packet_id == self.eof[destination]:
+            self.end_flow(destination, env)
+            return
+
+        if (self.last_acknowledged[destination][0] == packet_id - 1) and (packet_id - 1) in self.send_times[destination]:
+            self.update_rtt(self.send_times[destination][packet_id - 1], env.now, destination)
+
+        if self.last_acknowledged[destination][0] < packet_id:
+            self.window[destination] = (packet_id, max(self.window[destination][1], packet_id))
+            self.last_acknowledged[destination] = (packet_id, 1)
+        elif self.last_acknowledged[destination][0] == packet_id:
+            self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
+            if self.last_acknowledged[destination][1] == 4:
+                if debug_state:
+                    print('Duplicate acks received. Resetting.')
+                self.window_size[destination] = 1
+                self.window[destination] = (packet_id, packet_id + 1)
+                self.retransmit(destination, env)
+
+        self.graph_wsize.add_point(env.now, self.window_size[destination])
+
+        if debug_state:
+            print('Flight', self.window[destination])
+            print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
+
+        if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
+            self.flow_reactivate[destination].succeed()
+            self.flow_reactivate[destination] = env.event()
+
+
+    def send_ack(self, packet_id, source, env):
+        env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
+
+    def get_next_ack(self, packet_source):
+        received = self.received[packet_source]
+        expected = 0
+        for i in received:
+            if i != expected:
+                return expected
+            expected += 1
+        return expected
+
+    def receive_data(self, packet, env):
+        packet_id = packet.id
+        packet_source = packet.source
+
+        if packet_source not in self.received:
+            self.received[packet_source] = [packet_id]
+        elif packet_id in self.received[packet_source]:
+            return
+        else:
+            self.received[packet_source].append(packet_id)
+            self.received[packet_source].sort()
+
+        self.send_ack(self.get_next_ack(packet_source), packet_source, env)
 
     def receive_packet(self, packet, env):
         if debug_state and not isinstance(packet, RouterPacket):

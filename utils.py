@@ -1,9 +1,9 @@
 from device import Router
 import simpy
 
-def flow(data, start, source, destination, sim_env):
+def flow(data, start, source, destination, sim_env, tcp_type):
     yield sim_env.timeout(start)
-    source.start_flow(data=data, destination=destination, env=sim_env)
+    source.start_flow(data=data, destination=destination, env=sim_env, tcp_type=tcp_type)
 
 def dynamic_routing(devices, interval, sim_env):
     while True:
