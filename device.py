@@ -154,8 +154,7 @@ class Host(Device):
             yield env.timeout(self.get_timeout(destination) * try_number)
             if debug_state:
                 print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
-            if not self.ss_thresh[destination][1]:
-                self.ss_thresh[destination] = (self.get_curr_window_length(destination) / 2, True)
+            self.ss_thresh[destination] = self.get_curr_window_length(destination) / 2
             if debug_state:
                 print('new ss_thresh', self.ss_thresh[destination])
             self.graph_wsize.add_point(env.now, self.window_size[destination])
@@ -181,11 +180,17 @@ class Host(Device):
         packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
-    def start_flow(self, data, destination, env):
+    def start_flow(self, data, destination, env, tcp_type='Reno'):
+        if tcp_type == 'Reno':
+            env.process(self.start_tcp_flow(data, destination, env))
+        elif tcp_type == 'Fast':
+            env.process(self.start_fast_flow(data, destination, env))
+
+    def start_tcp_flow(self, data, destination, env):
         self.window[destination] = (0, 0)
         self.window_size[destination] = 1
         self.flow_reactivate[destination] = env.event()
-        self.ss_thresh[destination] = (float('inf'), False)
+        self.ss_thresh[destination] = float('inf')
         self.last_acknowledged[destination] = (0, 0)
         self.send_times[destination] = {}
         self.eof[destination] = math.ceil(data / DataPacket.size) + 1
@@ -198,6 +203,9 @@ class Host(Device):
                 self.send_data(p_id, destination, False, env)
             self.window[destination] = (self.window[destination][0], window_end_id)
             yield self.flow_reactivate[destination]
+
+    def start_fast_flow(self, data, destination, env):
+        pass
 
     def end_flow(self, destination, env):
         print(self.timer[destination].is_alive)
@@ -245,12 +253,12 @@ class Host(Device):
         if self.last_acknowledged[destination][0] < packet_id:
             self.timer[destination].interrupt('reset')
             self.window[destination] = (packet_id, max(self.window[destination][1], packet_id))
-            if self.last_acknowledged[destination][1] >= 4 and not self.ss_thresh[destination][1]:
+            if self.last_acknowledged[destination][1] >= 4:
                 if debug_state:
                     print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
-                self.window_size[destination] = self.ss_thresh[destination][0]
+                self.window_size[destination] = self.ss_thresh[destination]
             self.last_acknowledged[destination] = (packet_id, 1)
-            if self.window_size[destination] < self.ss_thresh[destination][0]:
+            if self.window_size[destination] < self.ss_thresh[destination]:
                 self.window_size[destination] += 1
             else:
                 self.window_size[destination] += (1 / self.window_size[destination])
@@ -259,8 +267,8 @@ class Host(Device):
             if self.last_acknowledged[destination][1] == 4:
                 if debug_state:
                     print('Duplicate acks received. Fast Retransmitting.')
-                self.ss_thresh[destination] = (self.window_size[destination] / 2, False)
-                self.window_size[destination] = self.ss_thresh[destination][0] + 3
+                self.ss_thresh[destination] = self.window_size[destination] / 2
+                self.window_size[destination] = self.ss_thresh[destination] + 3
                 self.retransmit(destination, env)
                 self.timer[destination].interrupt('reset')
             elif self.last_acknowledged[destination][1] > 4:
@@ -277,7 +285,7 @@ class Host(Device):
             self.flow_reactivate[destination] = env.event()
 
     def receive_packet(self, packet, env):
-        if debug_state:
+        if debug_state and not isinstance(packet, RouterPacket):
             print('Time', env.now, 'Host received', packet.__class__.__name__, packet.id, 'from Device', packet.source)
         self.num_received += 1
         if self.num_sent > 0:

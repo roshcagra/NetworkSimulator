@@ -6,7 +6,7 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 1024 * 10000
+data1 = 1024 * 6000
 # devices = [Host(ip=0), Host(ip=1),
 # Router(ip=2, routing_table={0:0, 1:1}),
 # Router(ip=3, routing_table={0:0, 1:1}),
@@ -113,12 +113,9 @@ for i in range(0, len(links)):
     link.graph_dropped.set_name("Link " + str(i))
     link.graph_dropped.plot()
     link.graph_buffocc.set_name("Link " + str(i))
-<<<<<<< HEAD
     link.graph_buffocc.plot()
-=======
     link.graph_buffocc.plot()
     link.graph_linkrate.set_name("Link " + str(i))
     link.graph_linkrate.plot()
     link.graph_delay.set_name("Link " + str(i))
     link.graph_delay.plot()
->>>>>>> 112648d0cf52d811afac6abb8e0dbd4553714924

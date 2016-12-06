@@ -3,7 +3,7 @@ import simpy
 
 def flow(data, start, source, destination, sim_env):
     yield sim_env.timeout(start)
-    sim_env.process(source.start_flow(data=data, destination=destination, env=sim_env))
+    source.start_flow(data=data, destination=destination, env=sim_env)
 
 def dynamic_routing(devices, interval, sim_env):
     while True:
@@ -27,5 +27,3 @@ def dynamic_routing(devices, interval, sim_env):
 # is done when the flow is done sending packets), event.processed will be set to True
 def all_events_processed(sim_env):
     return sim_env.peek() == simpy.core.Infinity
-
-
