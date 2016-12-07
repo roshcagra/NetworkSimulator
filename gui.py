@@ -30,6 +30,12 @@ class NetworkGUI(tk.Tk):
         self.clicked_flow = -1
         self.clicked_idx = -1
         self.found = False
+        info = Tk()
+        info.title("ReadMe")
+        inf = "This is a GUI for the Network Simulator.\n\nLeft Click: Create a device (host=blue, router=green)\nRight Click: Create a link betweeen two devices"
+        text = Text(info)
+        text.insert(INSERT, inf)
+        text.pack()
 
     def create_flow(self):
     	global devices
