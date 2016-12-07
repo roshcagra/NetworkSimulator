@@ -77,6 +77,10 @@ class NetworkGUI(tk.Tk):
                     label.grid(row=1)
                     entry2 = Entry(master)
                     entry2.grid(row=1, column=1)
+                    entry3 = StringVar(master)
+                    entry3.set("FAST")
+                    w = OptionMenu(master, label, "FAST", "RENO")
+                    w.grid()
 
                     def create_flow():
                         cor1_x = self.canvas.coords(device_id[self.clicked_idx][0])[0] + 10
@@ -85,11 +89,9 @@ class NetworkGUI(tk.Tk):
                         cor2_y = self.canvas.coords(device_id[idx][0])[1] + 10
                         link = self.canvas.create_line(cor1_x, cor1_y, cor2_x, cor2_y, fill="red")
 
-
                         if (self.clicked_flow != idx) and (self.clicked_flow != -1) and (idx != -1):
                             print('creating flow from', self.clicked_flow, 'to', idx)
-                            env.process(flow(int(entry1.get()), int(entry2.get()), devices[self.clicked_flow], devices[idx].ip, env))
-
+                            env.process(flow(int(entry1.get()), int(entry2.get()), devices[self.clicked_flow], devices[idx].ip, env, entry3.get()))
 
                         self.found = False
                         self.clicked_flow = -1
@@ -108,19 +110,19 @@ class NetworkGUI(tk.Tk):
 
         master = Tk()
         master.title("Create Device")
-        label = Label(master, text="Device", font=10)
-        label.grid(row=0)
-        entry1 = Entry(master)
-        entry1.grid(row=0, column=1)
+        label = StringVar(master)
+        label.set("host")
+        w = OptionMenu(master, label, "host", "router")
+        w.grid()
 
         def callback():
-            if entry1.get() == "host":
+            if label.get() == "host":
                 device = self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10, fill="blue")
                 device_id.append([device, 0])
                 devices.append(Host(ip=self.set_ip))
                 self.set_ip += 1
                 master.destroy()
-            elif entry1.get() == "router":
+            elif label.get() == "router":
                 device = self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10, fill="green")
                 device_id.append([device, 1])
                 devices.append(Router(ip=self.set_ip))
