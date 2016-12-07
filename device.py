@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = True
+debug_state = False
 
 aws = float('inf')
 
@@ -32,6 +32,12 @@ class Router(Device):
             self.routing_table = routing_table # destination ip -> link object (next hop)
         else:
             self.routing_table = {}
+    def add_link(self, link):
+        super(Router, self).add_link(link)
+        other = link.getOtherDevice(self.ip)
+        if(isinstance(other, Host)):
+            self.distance_table[other.ip] = 0
+            self.routing_table[other.ip] = link
 
     # determines type of packet and calls correct receiveving function
     def receive_packet(self, packet, env):
@@ -55,49 +61,24 @@ class Router(Device):
     def receive_router(self, packet, env):
         edge_weight = packet.buffer_occ
 
-        # print('Router', self.ip, 'received routing packet', packet.distance_table)
-        # print(self.ip, self.distance_table)
-
         change_detected = False
-
         for key in packet.distance_table:
-            # print('me', self.ip)
-            # print('d tbl', self.distance_table)
-            # print('r tbl', self.routing_table)
-            # print(key)
-            # print('---------')
 
+            if key == self.ip:
+                continue
             if key not in self.distance_table: # a router we have never seen before
                 self.distance_table[key] = packet.distance_table[key] + edge_weight
                 self.routing_table[key] = packet.link
                 change_detected = True
+            elif self.routing_table[key] == packet.link:
+                self.distance_table[key] = packet.distance_table[key] + edge_weight
             elif packet.distance_table[key] + edge_weight < self.distance_table[key]: # this route offers a shorter path to 'key'
                 self.distance_table[key] = packet.distance_table[key] + edge_weight
                 self.routing_table[key] = packet.link
                 change_detected = True
-            elif packet.source == key: # 'key' is the origin of the packet
-                if packet.link == self.routing_table[key]: # shortest path is directly from self.ip to key
-                    if edge_weight != self.distance_table[key]: # edge weight has increased!!!
-                        # self.distance_table[key] = packet.distance_table[key] + edge_weight
-                        for k in self.routing_table:
-                            if packet.link == self.routing_table[k]:
-                                # all of the recorded path lenghts for paths through
-                                # packet.link are now innacurate, since the edge_weight has changed
-                                # set distance to inf, and next cycle the path will be recalculated
-                                self.distance_table[k] = float('inf')
-                        if debug_state:
-                            print('edge weight increase detected')
-                        change_detected = True
 
         if change_detected:
             self.send_router(env)
-
-
-
-
-        # print(self.ip, 'routing table:')
-        # print(self.routing_table)
-        # print('------------------------------')
 
     def send_router(self, env):
         # p_id = (env.now + 1) * 100 + self.ip # unique ID, assumes ip is less than 100
@@ -105,7 +86,7 @@ class Router(Device):
         for link in self.links:
             # Todo, buffer_occ=(link.buffer.capacity - link.buffer.level) could be changed to buffer_occ=(link.buffer.capacity - link.buffer.level)/link.buffer.capacity.
             # (percent occupancy rather than the raw number of bits; if different links have different buffer capacities)
-            router_packet = RouterPacket(p_id=p_id, source=self.ip, distance_table=self.distance_table, buffer_occ=(link.buffer.capacity - link.buffer.level))
+            router_packet = RouterPacket(p_id=p_id, source=self.ip, distance_table=self.distance_table, buffer_occ=(link.buffer.capacity - link.buffer.level + RouterPacket.size - link.router_occ_size))
             router_packet.specify_link(link)
             env.process(link.send_packet(packet=router_packet, source=self.ip, env=env))
 
@@ -282,7 +263,8 @@ class Host(Device):
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
-        print('Window Size:', self.window_size[destination])
+        if debug_state:
+            print('Window Size:', self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()

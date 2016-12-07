@@ -6,7 +6,11 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 1024 * 5000
+data1 = 1024 * 2000
+
+# data1 = 1024 * 5000 * 0
+
+
 # devices = [Host(ip=0), Host(ip=1),
 # Router(ip=2, routing_table={0:0, 1:1}),
 # Router(ip=3, routing_table={0:0, 1:1}),
@@ -35,31 +39,6 @@ Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env)
 ]
 
 
-
-#H1
-devices[0].add_link(links[0])
-
-#H2
-devices[1].add_link(links[5])
-
-#R1
-devices[2].add_link(links[0])
-devices[2].add_link(links[1])
-devices[2].add_link(links[2])
-
-#R2
-devices[3].add_link(links[1])
-devices[3].add_link(links[3])
-
-#R3
-devices[4].add_link(links[2])
-devices[4].add_link(links[4])
-
-#R4
-devices[5].add_link(links[3])
-devices[5].add_link(links[4])
-devices[5].add_link(links[5])
-
 #L0
 links[0].add_device(devices[0])
 links[0].add_device(devices[2])
@@ -84,11 +63,29 @@ links[4].add_device(devices[5])
 links[5].add_device(devices[5])
 links[5].add_device(devices[1])
 
-# host0 to router2, host1 to router5
-devices[2].routing_table = {0:links[0]}
-devices[5].routing_table = {1:links[5]}
-devices[2].distance_table = {0:0}
-devices[5].distance_table = {1:0}
+#H1
+devices[0].add_link(links[0])
+
+#H2
+devices[1].add_link(links[5])
+
+#R1
+devices[2].add_link(links[0])
+devices[2].add_link(links[1])
+devices[2].add_link(links[2])
+
+#R2
+devices[3].add_link(links[1])
+devices[3].add_link(links[3])
+
+#R3
+devices[4].add_link(links[2])
+devices[4].add_link(links[4])
+
+#R4
+devices[5].add_link(links[3])
+devices[5].add_link(links[4])
+devices[5].add_link(links[5])
 
 
 p = env.process(flow(data1, 5000, devices[0], 1, env, 'Reno'))

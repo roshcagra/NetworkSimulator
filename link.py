@@ -1,7 +1,8 @@
 import simpy
 from graphing import Graph
+from packet import RouterPacket
 
-debug_state = True
+debug_state = False
 
 class Link:
     def __init__(self, link_rate, link_delay, max_buffer_size, env):
@@ -10,6 +11,7 @@ class Link:
         self.link_delay = link_delay # propogation delay
         self.send = simpy.Resource(env, capacity=1)
         self.buffer = simpy.Container(env, init=max_buffer_size, capacity=max_buffer_size)
+        self.router_occ_size = 0
         self.last_dest = (-1, 0)
         self.graph_buffocc = Graph("Buffer Occupancy", "buffocc")
         self.graph_delay = Graph("Packet Delay", "delay")
@@ -24,11 +26,24 @@ class Link:
     def add_device(self, device):
         self.devices[device.ip] = device
 
+    def getOtherDevice(self, my_ip):
+        for ip in self.devices:
+            if ip != my_ip:
+                return self.devices[ip]
+
+    def __repr__(self):
+        return 'Link from' + str(list(self.devices.keys())[0]) + 'to' + str(list(self.devices.keys())[1])
+
+    def __str__(self):
+        return 'Link from' + str(list(self.devices.keys())[0]) + 'to' + str(list(self.devices.keys())[1])
+
     def insert_into_buffer(self, packet, packet_size, env):
         if packet_size <= self.buffer.level:
             self.buffer.get(packet_size)
             #self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
             packet.t_enterbuff = env.now
+            if isinstance(packet, RouterPacket):
+                self.router_occ_size += RouterPacket.size
             return True
         else:
             return False
@@ -37,6 +52,8 @@ class Link:
         self.buffer.put(packet_size)
         self.sum_queued += 1
         self.sum_queuetime += env.now - packet.t_enterqueue
+        if isinstance(packet, RouterPacket):
+            self.router_occ_size -= RouterPacket.size
 
     def send_packet(self, packet, source, env):
         destination = -1
