@@ -6,7 +6,11 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 1024 * 2000
+data1 = 20000000
+
+# data1 = 1024 * 5000 * 0
+
+
 # devices = [Host(ip=0), Host(ip=1),
 # Router(ip=2, routing_table={0:0, 1:1}),
 # Router(ip=3, routing_table={0:0, 1:1}),
@@ -35,6 +39,29 @@ Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env)
 ]
 
 
+#L0
+links[0].add_device(devices[0])
+links[0].add_device(devices[2])
+
+#L1
+links[1].add_device(devices[2])
+links[1].add_device(devices[3])
+
+#L2
+links[2].add_device(devices[2])
+links[2].add_device(devices[4])
+
+#L3
+links[3].add_device(devices[3])
+links[3].add_device(devices[5])
+
+#L4
+links[4].add_device(devices[4])
+links[4].add_device(devices[5])
+
+#L5
+links[5].add_device(devices[5])
+links[5].add_device(devices[1])
 
 #H1
 devices[0].add_link(links[0])
@@ -60,39 +87,9 @@ devices[5].add_link(links[3])
 devices[5].add_link(links[4])
 devices[5].add_link(links[5])
 
-#L0
-links[0].add_device(devices[0])
-links[0].add_device(devices[2])
 
-#L1
-links[1].add_device(devices[2])
-links[1].add_device(devices[3])
-
-#L2
-links[2].add_device(devices[2])
-links[2].add_device(devices[4])
-
-#L3
-links[3].add_device(devices[3])
-links[3].add_device(devices[5])
-
-#L4
-links[4].add_device(devices[4])
-links[4].add_device(devices[5])
-
-#L5
-links[5].add_device(devices[5])
-links[5].add_device(devices[1])
-
-# host0 to router2, host1 to router5
-devices[2].routing_table = {0:links[0]}
-devices[5].routing_table = {1:links[5]}
-devices[2].distance_table = {0:0}
-devices[5].distance_table = {1:0}
-
-
-p = env.process(flow(data1, 5000, devices[0], 1, env, 'FAST'))
-r = env.process(dynamic_routing(devices=devices, interval=500, sim_env=env))
+p = env.process(flow(data1, 5000, devices[0], 1, env, 'Reno'))
+r = env.process(dynamic_routing(devices=devices, interval=5000, sim_env=env))
 
 # events is the list of other processes besides the routing process. once all the events have been processed
 # the dynamic routing process knows to stop.

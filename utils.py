@@ -7,17 +7,10 @@ def flow(data, start, source, destination, sim_env, tcp_type):
 
 def dynamic_routing(devices, interval, sim_env):
     while True:
-
-        for _ in range(4):
-
-            for device in devices:
-                if isinstance(device, Router):
-                    device.send_router(sim_env)
-            yield sim_env.timeout(12)
-
+        for device in devices:
+            if isinstance(device, Router):
+                device.send_router(sim_env)
         yield sim_env.timeout(interval)
-
-
 
         if all_events_processed(sim_env):
             print('All flows are dead. Simulation is over. Stop running routing algorithm. ')

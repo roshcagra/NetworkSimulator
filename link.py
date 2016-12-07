@@ -1,5 +1,6 @@
 import simpy
 from graphing import Graph
+from packet import RouterPacket
 
 debug_state = False
 
@@ -10,6 +11,7 @@ class Link:
         self.link_delay = link_delay # propogation delay
         self.send = simpy.Resource(env, capacity=1)
         self.buffer = simpy.Container(env, init=max_buffer_size, capacity=max_buffer_size)
+        self.router_occ_size = 0
         self.last_dest = (-1, 0)
         self.graph_buffocc = Graph("Buffer Occupancy", "buffocc")
         self.graph_delay = Graph("Packet Delay", "delay")
@@ -24,6 +26,17 @@ class Link:
     def add_device(self, device):
         self.devices[device.ip] = device
 
+    def getOtherDevice(self, my_ip):
+        for ip in self.devices:
+            if ip != my_ip:
+                return self.devices[ip]
+
+    def __repr__(self):
+        return 'Link from' + str(list(self.devices.keys())[0]) + 'to' + str(list(self.devices.keys())[1])
+
+    def __str__(self):
+        return 'Link from' + str(list(self.devices.keys())[0]) + 'to' + str(list(self.devices.keys())[1])
+
     def insert_into_buffer(self, packet, packet_size, env):
         # Plot "prev"
         self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
@@ -34,6 +47,8 @@ class Link:
             self.sum_packets += packet.size
 
             packet.t_enterbuff = env.now
+            if isinstance(packet, RouterPacket):
+                self.router_occ_size += RouterPacket.size
             return True
         else:
             return False
@@ -42,6 +57,8 @@ class Link:
         self.buffer.put(packet_size)
         self.sum_queued += 1
         self.sum_queuetime += env.now - packet.t_enterqueue
+        if isinstance(packet, RouterPacket):
+            self.router_occ_size -= RouterPacket.size
 
     def send_packet(self, packet, source, env):
         destination = -1
@@ -67,8 +84,6 @@ class Link:
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
                     next_time = self.last_dest[1]
                     yield env.timeout(max(0, next_time - env.now))
-                if debug_state:
-                    print('Time', env.now, 'Link sending', packet.__class__.__name__, packet.id, 'from Device', source, 'to Device', destination)
                 yield env.timeout(packet.size/self.link_rate * 1000)
                 # "Prev" buffer
                 if packet.__class__.__name__ == "DataPacket":
