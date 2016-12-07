@@ -6,7 +6,7 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 1024 * 10000
+data1 = 1024 * 2000
 # devices = [Host(ip=0), Host(ip=1),
 # Router(ip=2, routing_table={0:0, 1:1}),
 # Router(ip=3, routing_table={0:0, 1:1}),
@@ -91,8 +91,9 @@ devices[2].distance_table = {0:0}
 devices[5].distance_table = {1:0}
 
 
-p = env.process(flow(data1, 5000, devices[0], 1, env))
-r = env.process(dynamic_routing(devices=devices, interval=1000, sim_env=env))
+p = env.process(flow(data1, 5000, devices[0], 1, env, 'FAST'))
+r = env.process(dynamic_routing(devices=devices, interval=500, sim_env=env))
+
 # events is the list of other processes besides the routing process. once all the events have been processed
 # the dynamic routing process knows to stop.
 
@@ -112,6 +113,7 @@ for i in range(2, len(links)):
     link.graph_dropped.set_name("Link " + str(i))
     link.graph_dropped.plot()
     link.graph_buffocc.set_name("Link " + str(i))
+    link.graph_buffocc.plot()
     link.graph_buffocc.plot()
     link.graph_linkrate.set_name("Link " + str(i))
     link.graph_linkrate.plot()

@@ -1,17 +1,23 @@
 from device import Router
 import simpy
 
-def flow(data, start, source, destination, sim_env):
+def flow(data, start, source, destination, sim_env, tcp_type):
     yield sim_env.timeout(start)
-    sim_env.process(source.start_flow(data=data, destination=destination, env=sim_env))
+    source.start_flow(data=data, destination=destination, env=sim_env, tcp_type=tcp_type)
 
 def dynamic_routing(devices, interval, sim_env):
     while True:
-        # print('##############ROUTING PROCESS#############')
-        for device in devices:
-            if isinstance(device, Router):
-                device.send_router(sim_env)
+
+        for _ in range(4):
+
+            for device in devices:
+                if isinstance(device, Router):
+                    device.send_router(sim_env)
+            yield sim_env.timeout(12)
+
         yield sim_env.timeout(interval)
+
+
 
         if all_events_processed(sim_env):
             print('All flows are dead. Simulation is over. Stop running routing algorithm. ')
@@ -21,26 +27,3 @@ def dynamic_routing(devices, interval, sim_env):
 # is done when the flow is done sending packets), event.processed will be set to True
 def all_events_processed(sim_env):
     return sim_env.peek() == simpy.core.Infinity
-
-
-
-
-
-
-
-
-# #####################################################
-# TODO delete before presentation
-# can read this if wanna know what i'm doing with the all_events_processed funcion
-# def print_bogus(bogus, env):
-#     for i in range(100):
-#         print(bogus)
-#         yield env.timeout(10)
-
-# def end_when_other(bogus, env, p_to_end):
-#     while True:
-#         print(bogus)
-#         yield env.timeout(10)
-#         if p_to_end.processed == True:
-#             print(str(p_to_end) + 'has finished  procesing!')
-#             break
