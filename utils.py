@@ -12,8 +12,6 @@ def dynamic_routing(devices, interval, sim_env):
                 device.send_router(sim_env)
         yield sim_env.timeout(interval)
 
-
-
         if all_events_processed(sim_env):
             print('All flows are dead. Simulation is over. Stop running routing algorithm. ')
             break
