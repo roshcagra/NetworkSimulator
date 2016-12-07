@@ -128,53 +128,6 @@ class Host(Device):
     def get_curr_window_length(self, destination):
         return self.window[destination][1] - self.window[destination][0]
 
-    def get_timeout(self, destination):
-        if destination not in self.timeout_clock:
-            return 100
-        arrival_n = self.timeout_clock[destination][0]
-        deviation_n = self.timeout_clock[destination][1]
-        return arrival_n + 4 * max(deviation_n, 1)
-
-    def update_timeout_clock(self, send_time, arrival_time, destination):
-        travel_time = arrival_time - send_time
-        if debug_state:
-            print('New travel time:', travel_time)
-        if destination not in self.timeout_clock:
-            self.timeout_clock[destination] = (travel_time, travel_time / 2)
-            return
-        arrival_n = self.timeout_clock[destination][0]
-        deviation_n = self.timeout_clock[destination][1]
-        a = 1 / 8
-        b = 1 / 4
-
-        deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n)
-        arrival_n1 = (1 - a) * arrival_n + a * travel_time
-        self.timeout_clock[destination] = (arrival_n1, deviation_n1)
-
-    def retransmit(self, destination, env):
-        p_id = self.last_acknowledged[destination][0]
-        self.send_data(p_id, destination, True, env)
-
-    def reset_timer(self, destination, try_number, env):
-        try:
-            yield env.timeout(self.get_timeout(destination) * try_number)
-            if debug_state:
-                print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
-            self.ss_thresh[destination] = self.get_curr_window_length(destination) / 2
-            if debug_state:
-                print('new ss_thresh', self.ss_thresh[destination])
-            self.graph_wsize.add_point(env.now, self.window_size[destination])
-            self.window_size[destination] = 1
-            self.graph_wsize.add_point(env.now, self.window_size[destination])
-            self.retransmit(destination, env)
-            self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
-            self.window[destination] = (self.window[destination][0], self.window[destination][0] + 1)
-        except simpy.Interrupt as message:
-            if message.cause == 'reset':
-                self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
-            elif message.cause == 'end':
-                pass
-
     def send_data(self, p_id, destination, is_retransmit, env):
         if not is_retransmit:
             self.send_times[destination][p_id] = env.now
@@ -189,12 +142,12 @@ class Host(Device):
     def start_flow(self, data, destination, env, tcp_type='Reno'):
         if tcp_type == 'Reno':
             self.tcp_type[destination] = 'Reno'
-            env.process(self.start_tcp_flow(data, destination, env))
+            env.process(self.start_reno_flow(data, destination, env))
         elif tcp_type == 'FAST':
             self.tcp_type[destination] = 'FAST'
             env.process(self.start_fast_flow(data, destination, env))
 
-    def start_tcp_flow(self, data, destination, env):
+    def start_reno_flow(self, data, destination, env):
         self.window[destination] = (0, 0)
         self.window_size[destination] = 1
         self.flow_reactivate[destination] = env.event()
@@ -234,14 +187,50 @@ class Host(Device):
         if self.timer[destination].is_alive:
             self.timer[destination].interrupt('end')
 
-    def receive_ack(self, packet, env):
-        destination = packet.source
-        if self.tcp_type[destination] == 'Reno':
-            self.receive_tcp_ack(packet, env)
-        elif self.tcp_type[destination] == 'FAST':
-            self.receive_fast_ack(packet, env)
+    def retransmit(self, destination, env):
+        p_id = self.last_acknowledged[destination][0]
+        self.send_data(p_id, destination, True, env)
 
-    def receive_tcp_ack(self, packet, env):
+    def get_timeout(self, destination):
+        if destination not in self.timeout_clock:
+            return 100
+        arrival_n = self.timeout_clock[destination][0]
+        deviation_n = self.timeout_clock[destination][1]
+        return arrival_n + 4 * max(deviation_n, 1)
+
+    def update_timeout_clock(self, send_time, arrival_time, destination):
+        travel_time = arrival_time - send_time
+        if destination not in self.timeout_clock:
+            self.timeout_clock[destination] = (travel_time, travel_time / 2)
+            return
+        arrival_n = self.timeout_clock[destination][0]
+        deviation_n = self.timeout_clock[destination][1]
+        a = 1 / 8
+        b = 1 / 4
+
+        deviation_n1 = (1 - b) * deviation_n + b * abs(travel_time - arrival_n)
+        arrival_n1 = (1 - a) * arrival_n + a * travel_time
+        self.timeout_clock[destination] = (arrival_n1, deviation_n1)
+
+    def reset_timer(self, destination, try_number, env):
+        try:
+            yield env.timeout(self.get_timeout(destination) * try_number)
+            if debug_state:
+                print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
+            self.ss_thresh[destination] = math.floor(self.window_size[destination] / 2)
+            self.graph_wsize.add_point(env.now, self.window_size[destination])
+            self.retransmit(destination, env)
+            self.window_size[destination] = 1
+            self.window[destination] = (self.window[destination][0], self.window[destination][0] + 1)
+            self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
+            self.graph_wsize.add_point(env.now, self.window_size[destination])
+        except simpy.Interrupt as message:
+            if message.cause == 'reset':
+                self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
+            elif message.cause == 'end':
+                pass
+
+    def receive_reno_ack(self, packet, env):
         packet_id = packet.id
         destination = packet.source
         if packet_id == self.eof[destination]:
@@ -260,17 +249,23 @@ class Host(Device):
                 if debug_state:
                     print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
                 self.window_size[destination] = self.ss_thresh[destination]
+                self.window_size[destination] += (1 / self.window_size[destination])
             self.last_acknowledged[destination] = (packet_id, 1)
             if self.window_size[destination] < self.ss_thresh[destination]:
                 self.window_size[destination] += 1
             else:
-                self.window_size[destination] += (1 / self.window_size[destination])
+                self.window_size[destination] += (1 / math.floor(self.window_size[destination]))
         elif self.last_acknowledged[destination][0] == packet_id:
             self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
+            if self.last_acknowledged[destination][1] < 4:
+                if self.window_size[destination] < self.ss_thresh[destination]:
+                    self.window_size[destination] += 1
+                else:
+                    self.window_size[destination] += (1 / math.floor(self.window_size[destination]))
             if self.last_acknowledged[destination][1] == 4:
                 if debug_state:
                     print('Duplicate acks received. Fast Retransmitting.')
-                self.ss_thresh[destination] = self.window_size[destination] / 2
+                self.ss_thresh[destination] = math.floor(self.window_size[destination] / 2)
                 self.window_size[destination] = self.ss_thresh[destination] + 3
                 self.retransmit(destination, env)
                 self.timer[destination].interrupt('reset')
@@ -279,9 +274,7 @@ class Host(Device):
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
-        if debug_state:
-            print('Flight', self.window[destination])
-            print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
+        print('Window Size:', self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
@@ -304,7 +297,6 @@ class Host(Device):
         new_RTT = arrival_time - send_time
         new_base_RTT = min(self.fast_RTT[destination][0], new_RTT)
         self.fast_RTT[destination] = (new_base_RTT, new_RTT)
-        # print('New RTT Ratio:', self.fast_RTT[destination][0]/ self.fast_RTT[destination][1])
 
     def receive_fast_ack(self, packet, env):
         packet_id = packet.id
@@ -312,6 +304,8 @@ class Host(Device):
         if packet_id == self.eof[destination]:
             self.end_flow(destination, env)
             return
+
+        self.graph_wsize.add_point(env.now, self.window_size[destination])
 
         if (self.last_acknowledged[destination][0] == packet_id - 1) and (packet_id - 1) in self.send_times[destination]:
             self.update_rtt(self.send_times[destination][packet_id - 1], env.now, destination)
@@ -330,14 +324,16 @@ class Host(Device):
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
-        if debug_state:
-            print('Flight', self.window[destination])
-            print('Window diff', self.get_curr_window_length(destination), self.window_size[destination])
-
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
 
+    def receive_ack(self, packet, env):
+        destination = packet.source
+        if self.tcp_type[destination] == 'Reno':
+            self.receive_reno_ack(packet, env)
+        elif self.tcp_type[destination] == 'FAST':
+            self.receive_fast_ack(packet, env)
 
     def send_ack(self, packet_id, source, env):
         env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))

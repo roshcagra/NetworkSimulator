@@ -1,7 +1,7 @@
 import simpy
 from graphing import Graph
 
-debug_state = False
+debug_state = True
 
 class Link:
     def __init__(self, link_rate, link_delay, max_buffer_size, env):
@@ -61,8 +61,6 @@ class Link:
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
                     next_time = self.last_dest[1]
                     yield env.timeout(max(0, next_time - env.now))
-                if debug_state:
-                    print('Time', env.now, 'Link sending', packet.__class__.__name__, packet.id, 'from Device', source, 'to Device', destination)
                 yield env.timeout(packet.size/self.link_rate * 1000)
                 self.remove_from_buffer(packet, packet.size, env)
                 # Buffer--

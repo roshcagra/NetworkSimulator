@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 env = simpy.Environment()
 
 #data1 = 1024 * 10000
-data1 = 1024 * 10000
+data1 = 1024 * 5000
 #data1 = 2 * 10 ** 7
 devices = [Host(ip=0), Host(ip=1)]
 links = [Link(link_rate=(2.578 * 10 ** 11), link_delay=10, max_buffer_size=64000, env=env)]
@@ -27,7 +27,7 @@ fig = plt.figure()
 #     sim_env.process(devices[source].start_flow(data=data, destination=destination, env=sim_env))
 
 
-p = env.process(flow(data1, 1000, devices[0], 1, env, 'FAST'))
+p = env.process(flow(data1, 1000, devices[0], 1, env, 'Reno'))
 env.run()
 
 for device in devices:
