@@ -58,6 +58,8 @@ class Router(Device):
         # print('Router', self.ip, 'received routing packet', packet.distance_table)
         # print(self.ip, self.distance_table)
 
+        change_detected = False
+
         for key in packet.distance_table:
             # print('me', self.ip)
             # print('d tbl', self.distance_table)
@@ -68,9 +70,11 @@ class Router(Device):
             if key not in self.distance_table: # a router we have never seen before
                 self.distance_table[key] = packet.distance_table[key] + edge_weight
                 self.routing_table[key] = packet.link
+                change_detected = True
             elif packet.distance_table[key] + edge_weight < self.distance_table[key]: # this route offers a shorter path to 'key'
                 self.distance_table[key] = packet.distance_table[key] + edge_weight
                 self.routing_table[key] = packet.link
+                change_detected = True
             elif packet.source == key: # 'key' is the origin of the packet
                 if packet.link == self.routing_table[key]: # shortest path is directly from self.ip to key
                     if edge_weight != self.distance_table[key]: # edge weight has increased!!!
@@ -83,6 +87,10 @@ class Router(Device):
                                 self.distance_table[k] = float('inf')
                         if debug_state:
                             print('edge weight increase detected')
+                        change_detected = True
+
+        if change_detected:
+            self.send_router(env)
 
 
 
