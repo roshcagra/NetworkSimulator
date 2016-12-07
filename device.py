@@ -291,11 +291,12 @@ class Host(Device):
         try:
             while True:
                 yield env.timeout(20)
-                (base_rtt, last_rtt) = self.fast_RTT[destination]
-                curr_wsize = self.window_size[destination]
-                g = 0.05
-                a = 15
-                self.window_size[destination] = min(2 * curr_wsize, (1 - g) * curr_wsize + g * ((base_rtt / last_rtt) * curr_wsize + a))
+                if self.last_acknowledged[destination][0] > 0:
+                    (base_rtt, last_rtt) = self.fast_RTT[destination]
+                    curr_wsize = self.window_size[destination]
+                    g = 0.05
+                    a = 10
+                    self.window_size[destination] = min(2 * curr_wsize, (1 - g) * curr_wsize + g * ((base_rtt / last_rtt) * curr_wsize + a))
         except simpy.Interrupt:
             return
 
@@ -303,6 +304,7 @@ class Host(Device):
         new_RTT = arrival_time - send_time
         new_base_RTT = min(self.fast_RTT[destination][0], new_RTT)
         self.fast_RTT[destination] = (new_base_RTT, new_RTT)
+        # print('New RTT Ratio:', self.fast_RTT[destination][0]/ self.fast_RTT[destination][1])
 
     def receive_fast_ack(self, packet, env):
         packet_id = packet.id
