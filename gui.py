@@ -79,7 +79,7 @@ class NetworkGUI(tk.Tk):
                     entry2.grid(row=1, column=1)
                     entry3 = StringVar(master)
                     entry3.set("FAST")
-                    w = OptionMenu(master, label, "FAST", "RENO")
+                    w = OptionMenu(master, entry3, "FAST", "RENO")
                     w.grid()
 
                     def create_flow():
