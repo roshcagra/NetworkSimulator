@@ -20,14 +20,53 @@ class NetworkGUI(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
         self.title("Network Simulator")
-        self.canvas = tk.Canvas(width=500, height=500)
+        self.canvas = tk.Canvas(width=800, height=800)
         self.canvas.pack(fill="both", expand=True)
         self.simulate = tk.Button(text="Simulate", command=self.run)
         self.simulate.pack(side=tk.RIGHT)
+        self.create_flow = tk.Button(text="Create Flow", command=self.create_flow)
+        self.create_flow.pack(side=tk.RIGHT)
         self.set_ip = 0
         self.clicked_flow = -1
         self.clicked_idx = -1
         self.found = False
+
+    def create_flow(self):
+    	global devices
+    	global devices_id
+    	device_ip = [item.ip for item in devices]
+    	master = Tk()
+    	master.title("Create Flow")
+    	label = Label(master, text="Amount", font=10)
+    	label.grid(row=0)
+    	entry1 = Entry(master)
+    	entry1.grid(row=0, column=1)
+    	label = Label(master, text="Start Time", font=10)
+    	label.grid(row=1)
+    	entry2 = Entry(master)
+    	entry2.grid(row=1, column=1)
+    	entry3 = StringVar(master)
+    	entry3.set(device_ip[0])
+    	w = apply(OptionMenu, (master, entry3) + tuple(device_ip))
+    	w.grid()
+    	entry4 = StringVar(master)
+    	entry4.set(device_ip[0])
+    	w = apply(OptionMenu, (master, entry4) + tuple(device_ip))
+    	w.grid()
+    	entry5 = StringVar(master)
+    	entry5.set("FAST")
+    	w = OptionMenu(master, entry5, "FAST", "RENO")
+    	w.grid()
+
+    	def create_flow_for_real():
+    		if (devices[int(entry3.get())].type and devices[int(entry4.get())].type == "host") and (entry3.get() != entry4.get()):
+    			env.process(flow(int(entry1.get()), int(entry2.get()), devices[int(entry3.get())], devices[int(entry4.get())].ip, env, entry5.get()))
+    			flow_text = entry5.get() + " flow from " + entry3.get() + " --> " + entry4.get() + "\nAmount:" + entry1.get() + ", Start Time:" + entry2.get()
+    			text_id = self.canvas.create_text(5, 0, anchor=NW, text=flow_text)
+    			master.destroy()
+
+    	button1=Button(master, text="Create", command=create_flow_for_real)
+    	button1.grid(row=5, column=1)
 
     def run(self):
         global devices
@@ -59,51 +98,6 @@ class NetworkGUI(tk.Tk):
             device_id = []
             link_id = []
 
-    def button_handler_double(self, event):
-        for idx in range(len(devices)):
-            coord = self.canvas.coords(device_id[idx][0])
-            print(event.x, event.y)
-            print(coord)
-            if coord[0] < event.x < coord[2] and coord[1] < event.y < coord[3] and device_id[idx][1] == 0:
-                print(device_id[idx][1])
-                if self.clicked_flow != -1:
-                    master = Tk()
-                    master.title("Create Flow")
-                    label = Label(master, text="Amount", font=10)
-                    label.grid(row=0)
-                    entry1 = Entry(master)
-                    entry1.grid(row=0, column=1)
-                    label = Label(master, text="Start Time", font=10)
-                    label.grid(row=1)
-                    entry2 = Entry(master)
-                    entry2.grid(row=1, column=1)
-                    entry3 = StringVar(master)
-                    entry3.set("FAST")
-                    w = OptionMenu(master, entry3, "FAST", "RENO")
-                    w.grid()
-
-                    def create_flow():
-                        cor1_x = self.canvas.coords(device_id[self.clicked_idx][0])[0] + 10
-                        cor1_y = self.canvas.coords(device_id[self.clicked_idx][0])[1] + 10
-                        cor2_x = self.canvas.coords(device_id[idx][0])[0] + 10
-                        cor2_y = self.canvas.coords(device_id[idx][0])[1] + 10
-                        link = self.canvas.create_line(cor1_x, cor1_y, cor2_x, cor2_y, fill="red")
-
-                        if (self.clicked_flow != idx) and (self.clicked_flow != -1) and (idx != -1):
-                            print('creating flow from', self.clicked_flow, 'to', idx)
-                            env.process(flow(int(entry1.get()), int(entry2.get()), devices[self.clicked_flow], devices[idx].ip, env, entry3.get()))
-
-                        self.found = False
-                        self.clicked_flow = -1
-                        master.destroy()
-
-                    button1=Button(master, text="Create", command=create_flow)
-                    button1.grid(row=2, column=1)
-                else:
-                    self.clicked_flow = idx
-                    break
-                self.found == True
-
     def button_handler_l(self, event):
         global devices
         global device_id
@@ -120,12 +114,14 @@ class NetworkGUI(tk.Tk):
                 device = self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10, fill="blue")
                 device_id.append([device, 0])
                 devices.append(Host(ip=self.set_ip))
+                text_id = self.canvas.create_text(event.x, event.y, text=self.set_ip, fill="white")
                 self.set_ip += 1
                 master.destroy()
             elif label.get() == "router":
                 device = self.canvas.create_oval(event.x - 10, event.y - 10, event.x + 10, event.y + 10, fill="green")
                 device_id.append([device, 1])
                 devices.append(Router(ip=self.set_ip))
+                text_id = self.canvas.create_text(event.x, event.y, text=self.set_ip, fill="white")
                 self.set_ip += 1
                 master.destroy()
 
@@ -200,7 +196,6 @@ if __name__ == "__main__":
     root.bind('<Key>', root.key_handler)
     root.canvas.bind('<Button-1>', root.button_handler_l)
     root.canvas.bind('<Button-2>', root.button_handler_r)
-    root.canvas.bind('<Double-Button-1>', root.button_handler_double)
     devices = []
     device_id = []
     links = []
