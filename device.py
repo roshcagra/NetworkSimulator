@@ -16,7 +16,11 @@ class Device:
         self.links = []
 
         self.graph_flowrate = Graph("Flow Rate", "flowrate")
+        self.flowinterval = 5
+        self.flowcur = 0
+        self.flowstart = 0
         self.graph_wsize = Graph("Window Size", "wsize")
+
 
     def add_link(self, link):
         self.links.append(link)
@@ -357,8 +361,17 @@ class Host(Device):
         if debug_state and not isinstance(packet, RouterPacket):
             print('Time', env.now, 'Host received', packet.__class__.__name__, packet.id, 'from Device', packet.source)
         self.num_received += 1
-        if self.num_sent > 0:
-            self.graph_flowrate.add_point(env.now, self.num_received/self.num_sent)
+        self.flowcur += packet.size
+        #if self.num_sent > 0:
+        #    self.graph_flowrate.add_point(env.now, self.num_received/self.num_sent)
+
+        if self.flowinterval + self.flowstart <= env.now:
+            # reached interval
+            self.graph_flowrate.add_point(env.now, self.flowcur/(env.now - self.flowstart*1.0))
+            self.flowstart = env.now
+            self.flowcur = 0
+
+
         if isinstance(packet, DataPacket):
             self.receive_data(packet, env)
         elif isinstance(packet, AckPacket):

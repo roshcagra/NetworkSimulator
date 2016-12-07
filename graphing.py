@@ -1,11 +1,7 @@
 import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib import pyplot as plt
-
-
 # import matplotlib.pyplot as plt
-
-
 
 class Graph:
     def __init__(self, title, filename):
@@ -30,6 +26,12 @@ class Graph:
         file.write(str(time) + "," + str(value) + "\n")
         file.close()
 
+        # Log
+        file = open("log/" + self.filename + ".txt","a")
+        #file.write(str(time) + "," + str(value) + "\n")
+        file.write(str(time) + "," + str(value) + "\n")
+        file.close()
+
         # if len(self.time) > 50: # Arbitrary graph scrolling window size
         #     self.time.pop(0)
         #     self.val.pop(0)
@@ -43,12 +45,3 @@ class Graph:
         plt.ylabel(self.title)
         plt.xlabel('time (ms)')
         plt.show()
-
-# class BigGraph(Graph):
-#     def __init__(self):
-#         self.subplots = []
-#         ax1 = fig.add_subplot(2,1,2)
-#
-#     def plot_all():
-#         for sub in self.subplots:
-#             ax1 = fig.add_subplot(2,1,2)

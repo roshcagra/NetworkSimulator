@@ -38,9 +38,14 @@ class Link:
         return 'Link from' + str(list(self.devices.keys())[0]) + 'to' + str(list(self.devices.keys())[1])
 
     def insert_into_buffer(self, packet, packet_size, env):
+        # Plot "prev"
+        self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
         if packet_size <= self.buffer.level:
             self.buffer.get(packet_size)
-            #self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+            # Buffer++
+            self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+            self.sum_packets += packet.size
+
             packet.t_enterbuff = env.now
             if isinstance(packet, RouterPacket):
                 self.router_occ_size += RouterPacket.size
@@ -63,10 +68,11 @@ class Link:
 
         if self.insert_into_buffer(packet, packet.size, env):
             time_enter_queue = env.now
-            # Buffer++
-            self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
-            self.sum_packets += packet.size
+            # # Buffer++
+            # self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+            # self.sum_packets += packet.size
 
+            # TODO
             self.graph_dropped.add_point(env.now, self.current_dropped)
             self.current_dropped = 0
             self.graph_dropped.add_point(env.now, self.current_dropped)
@@ -79,7 +85,12 @@ class Link:
                     next_time = self.last_dest[1]
                     yield env.timeout(max(0, next_time - env.now))
                 yield env.timeout(packet.size/self.link_rate * 1000)
+                # "Prev" buffer
+                if packet.__class__.__name__ == "DataPacket":
+                    self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+
                 self.remove_from_buffer(packet, packet.size, env)
+
                 # Buffer--
                 if packet.__class__.__name__ == "DataPacket":
                     self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
@@ -89,9 +100,12 @@ class Link:
             self.graph_delay.add_point(env.now, env.now - time_enter_queue)
             self.devices[destination].receive_packet(packet, env)
         else:
+            # Dropped packet
             if env.now == self.last_dropped_time:
+                # It's part of a chunk of packets dropped at the same time
                 self.current_dropped += 1
             else:
+                # It's the start of a new series of dropped packets
                 self.last_dropped_time = env.now
                 self.current_dropped = 1
 
