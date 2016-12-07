@@ -10,20 +10,6 @@ data1 = 20000000
 
 # data1 = 1024 * 5000 * 0
 
-
-# devices = [Host(ip=0), Host(ip=1),
-# Router(ip=2, routing_table={0:0, 1:1}),
-# Router(ip=3, routing_table={0:0, 1:1}),
-# Router(ip=4, routing_table={0:0, 1:1}),
-# Router(ip=5, routing_table={0:1, 1:2})]
-# links = [Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env),
-# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-# Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-# Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env)
-# ]
-
 # routing table maps to link object, not the idx in list
 devices = [Host(ip=0), Host(ip=1),
 Router(ip=2),
