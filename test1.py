@@ -107,7 +107,7 @@ for device in devices:
     device.graph_flowrate.set_name(device_name)
     device.graph_flowrate.plot()
 
-for i in range(0, len(links)):
+for i in range(2, len(links)):
     link = links[i]
     link.graph_dropped.set_name("Link " + str(i))
     link.graph_dropped.plot()

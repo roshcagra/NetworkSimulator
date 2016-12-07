@@ -7,25 +7,48 @@ class Graph:
         self.val = []   # y axis
         self.name = ''
         self.filename = filename
+        self.avgwindow = 100
+        self.curwindow = 0
 
     def add_point(self, time, value):
-        # if self.time[-1] == time:
-        #     self.val[-1] += value
-        # else:
-        #     self.time.append(time)
-        #     self.val.append(value)
 
-        self.time.append(time)
-        self.val.append(value)
+        # Add to average
+        if self.curwindow < self.avgwindow:
+            self.time.append(time)
+            self.val.append(value)
+            self.curwindow += 1
+        else :
+            # If it hits the number of points to avg, plot it
+            avg_x = 0
+            avg_y = 0
+            for i in range(1, self.avgwindow):
+                avg_x = self.time.pop(len(self.time) - 1)
+                avg_y = self.val.pop(len(self.val) - 1)
 
-        # Write to external file for plotting on a seperate python script
-        file = open("data/" + self.filename + ".txt","a")
-        file.write(str(time) + "," + str(value) + "\n")
-        file.close()
 
-        # if len(self.time) > 50: # Arbitrary graph scrolling window size
-        #     self.time.pop(0)
-        #     self.val.pop(0)
+            avg_val = 0
+            if (time - avg_x):
+                avg_val = abs(value - avg_y)/(time - avg_x)
+            else:
+                avg_val = abs(value - avg_y)/1
+
+            if avg_val < -0.5 or avg_val > 0.5:
+                self.time.append(time)
+                self.val.append(avg_val)
+
+                # Write to external file for plotting on a seperate python script
+                file = open("data/" + self.filename + ".txt","a")
+                #file.write(str(time) + "," + str(value) + "\n")
+                file.write(str(time) + "," + str(avg_val) + "\n")
+                file.close()
+
+                # Log
+                file = open("log/" + self.filename + ".txt","a")
+                #file.write(str(time) + "," + str(value) + "\n")
+                file.write(str(time) + "," + str(avg_val) + "\n")
+                file.close()
+
+            self.curwindow = 0
 
     def set_name(self, name):
         self.name = name
@@ -36,12 +59,3 @@ class Graph:
         plt.ylabel(self.title)
         plt.xlabel('time (ms)')
         plt.show()
-
-# class BigGraph(Graph):
-#     def __init__(self):
-#         self.subplots = []
-#         ax1 = fig.add_subplot(2,1,2)
-#
-#     def plot_all():
-#         for sub in self.subplots:
-#             ax1 = fig.add_subplot(2,1,2)

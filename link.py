@@ -20,7 +20,7 @@ class Link:
         self.sum_queued = 0     # number of packets that have ever been queued
         self.sum_queuetime = 0  # sum of all queue wait times
         self.sum_packets = 0 # sum of sizes of all sent packets
-
+        
     def add_device(self, device):
         self.devices[device.ip] = device
 
