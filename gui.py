@@ -66,12 +66,12 @@ class NetworkGUI(tk.Tk):
 		w.grid()
 		entry5 = StringVar(master)
 		entry5.set("FAST")
-		w = OptionMenu(master, entry5, "FAST", "RENO")
+		w = OptionMenu(master, entry5, "FAST", "Reno")
 		w.grid()
 
 		def create_flow_for_real():
 			if (devices[int(entry3.get())].type and devices[int(entry4.get())].type == "host") and (entry3.get() != entry4.get()):
-				env.process(flow(float(entry1.get()) * 10**6, float(entry2.get()) * 10**4, devices[int(entry3.get())], devices[int(entry4.get())].ip, env, entry5.get()))
+				env.process(flow(float(entry1.get()) * 10**6, float(entry2.get()) * 10**3, devices[int(entry3.get())], devices[int(entry4.get())].ip, env, entry5.get()))
 				flow_text = entry5.get() + " flow from " + entry3.get() + " --> " + entry4.get() + "\nAmount(MB):" + entry1.get() + ", Start Time(s):" + entry2.get()
 				text_id = self.canvas.create_text(5, self.increment, anchor=NW, text=flow_text)
 				self.increment += 40
@@ -85,13 +85,23 @@ class NetworkGUI(tk.Tk):
 		r = env.process(dynamic_routing(devices, 500, env))
 		env.run()
 		for device in devices:
-			device_name = "Device " + str(device.ip)
-			device.graph_wsize.set_name(device_name)
-			device.graph_wsize.plot()
-			for l in range(0, len(device.links)):
-				link = device.links[l]
-				link.graph_buffocc.set_name(device_name + " " + "Link " + str(l))
-				link.graph_buffocc.plot()
+		    device_name = "Device " + str(device.ip)
+		    device.graph_wsize.set_name(device_name)
+		    device.graph_wsize.plot()
+		    device.graph_flowrate.set_name(device_name)
+		    device.graph_flowrate.plot()
+
+		for i in range(0, len(links)):
+		    link = links[i]
+		    link.graph_dropped.set_name("Link " + str(i))
+		    link.graph_dropped.plot()
+		    link.graph_buffocc.set_name("Link " + str(i))
+		    link.graph_buffocc.plot()
+		    link.graph_buffocc.plot()
+		    link.graph_linkrate.set_name("Link " + str(i))
+		    link.graph_linkrate.plot()
+		    link.graph_delay.set_name("Link " + str(i))
+		    link.graph_delay.plot()
 
 	def key_handler(self, event):
 		global devices
