@@ -6,7 +6,7 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 20000000
+data1 = 1024 * 6000
 
 # data1 = 1024 * 5000 * 0
 
@@ -99,18 +99,18 @@ env.run()
 
 
 for device in devices:
-    device_name = "Device " + str(device.ip)
-    device.graph_wsize.set_name(device_name)
-    device.graph_wsize.plot()
-    device.graph_flowrate.set_name(device_name)
-    device.graph_flowrate.plot()
+    if isinstance(device, Host):
+        device_name = "Device " + str(device.ip)
+        device.graph_wsize.set_name(device_name)
+        device.graph_wsize.plot()
+        device.graph_flowrate.set_name(device_name)
+        device.graph_flowrate.plot()
 
 for i in range(0, len(links)):
     link = links[i]
     link.graph_dropped.set_name("Link " + str(i))
     link.graph_dropped.plot()
     link.graph_buffocc.set_name("Link " + str(i))
-    link.graph_buffocc.plot()
     link.graph_buffocc.plot()
     link.graph_linkrate.set_name("Link " + str(i))
     link.graph_linkrate.plot()
