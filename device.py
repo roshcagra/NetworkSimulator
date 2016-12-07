@@ -274,7 +274,8 @@ class Host(Device):
 
         self.graph_wsize.add_point(env.now, self.window_size[destination])
 
-        print('Window Size:', self.window_size[destination])
+        if debug_state:
+            print('Window Size:', self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
@@ -317,7 +318,7 @@ class Host(Device):
             self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
             if self.last_acknowledged[destination][1] == 4:
                 if debug_state:
-                    print('Duplicate acks received. Resetting.')
+                    print('Duplicate acks received. Retransmitting and resetting.')
                 self.window_size[destination] = 1
                 self.window[destination] = (packet_id, packet_id + 1)
                 self.retransmit(destination, env)
