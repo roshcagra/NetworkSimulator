@@ -6,7 +6,7 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 1024 * 2000
+data1 = 20000000
 
 # data1 = 1024 * 5000 * 0
 
