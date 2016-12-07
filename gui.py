@@ -30,12 +30,17 @@ class NetworkGUI(tk.Tk):
         self.clicked_flow = -1
         self.clicked_idx = -1
         self.found = False
+        self.increment = 5
         info = Tk()
         info.title("ReadMe")
         inf = "This is a GUI for the Network Simulator.\n\nLeft Click: Create a device (host=blue, router=green)\nRight Click: Create a link betweeen two devices"
         text = Text(info)
         text.insert(INSERT, inf)
         text.pack()
+        def done():
+    		info.destroy()
+        button1=Button(info, text="OK", command=done)
+    	button1.pack()
 
     def create_flow(self):
     	global devices
@@ -43,11 +48,11 @@ class NetworkGUI(tk.Tk):
     	device_ip = [item.ip for item in devices]
     	master = Tk()
     	master.title("Create Flow")
-    	label = Label(master, text="Amount", font=10)
+    	label = Label(master, text="Amount(MB)", font=10)
     	label.grid(row=0)
     	entry1 = Entry(master)
     	entry1.grid(row=0, column=1)
-    	label = Label(master, text="Start Time", font=10)
+    	label = Label(master, text="Start Time(s)", font=10)
     	label.grid(row=1)
     	entry2 = Entry(master)
     	entry2.grid(row=1, column=1)
@@ -66,9 +71,10 @@ class NetworkGUI(tk.Tk):
 
     	def create_flow_for_real():
     		if (devices[int(entry3.get())].type and devices[int(entry4.get())].type == "host") and (entry3.get() != entry4.get()):
-    			env.process(flow(int(entry1.get()), int(entry2.get()), devices[int(entry3.get())], devices[int(entry4.get())].ip, env, entry5.get()))
-    			flow_text = entry5.get() + " flow from " + entry3.get() + " --> " + entry4.get() + "\nAmount:" + entry1.get() + ", Start Time:" + entry2.get()
-    			text_id = self.canvas.create_text(5, 0, anchor=NW, text=flow_text)
+    			env.process(flow(float(entry1.get()) * 10**6, float(entry2.get()) * 10**4, devices[int(entry3.get())], devices[int(entry4.get())].ip, env, entry5.get()))
+    			flow_text = entry5.get() + " flow from " + entry3.get() + " --> " + entry4.get() + "\nAmount(MB):" + entry1.get() + ", Start Time(s):" + entry2.get()
+    			text_id = self.canvas.create_text(5, self.increment, anchor=NW, text=flow_text)
+    			self.increment += 40
     			master.destroy()
 
     	button1=Button(master, text="Create", command=create_flow_for_real)
@@ -146,17 +152,17 @@ class NetworkGUI(tk.Tk):
                 if self.clicked_idx != -1:
                     master = Tk()
                     master.title("Create Link")
-                    label = Label(master, text="Link Rate", font=10)
+                    label = Label(master, text="Link Rate(Mbps)", font=10)
                     label.grid(row=0)
                     entry1 = Entry(master)
                     entry1.grid(row=0, column=1)
 
-                    label=Label(master, text="Link Delay", font=10)
+                    label=Label(master, text="Link Delay(ms)", font=10)
                     label.grid(row=1)
                     entry2 = Entry(master)
                     entry2.grid(row=1, column=1)
 
-                    label=Label(master, text="Max Buffer Size", font=10)
+                    label=Label(master, text="Max Buffer Size(KB)", font=10)
                     label.grid(row=2)
                     entry3 = Entry(master)
                     entry3.grid(row=2, column=1)
@@ -165,10 +171,12 @@ class NetworkGUI(tk.Tk):
                     cor1_y = self.canvas.coords(device_id[self.clicked_idx][0])[1] + 10
                     cor2_x = self.canvas.coords(device_id[idx][0])[0] + 10
                     cor2_y = self.canvas.coords(device_id[idx][0])[1] + 10
-                    link = self.canvas.create_line(cor1_x, cor1_y, cor2_x, cor2_y)
+                    link = self.canvas.create_line(cor1_x, cor1_y, cor2_x, cor2_y, fill="red")
 
                     def create_link():
-                        link_val = Link(link_rate=int(entry1.get()), link_delay=int(entry2.get()), max_buffer_size=int(entry3.get()), env=env)
+                    	link_text = "LR:" + entry1.get() + "\nLD:" + entry2.get() + "\nMBS:" + entry3.get()
+                    	text_id = self.canvas.create_text((cor1_x + cor2_x) / 2, (cor1_y + cor2_y) / 2, text=link_text)
+                        link_val = Link(link_rate=float(entry1.get()) * 1.25 * 10**5, link_delay=float(entry2.get()), max_buffer_size=float(entry3.get()) * 10**3, env=env)
                         links.append(link_val)
                         link_id.append(link)
 
