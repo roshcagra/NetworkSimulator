@@ -186,7 +186,7 @@ class Host(Device):
 
     def get_timeout(self, destination):
         if destination not in self.timeout_clock:
-            return 100
+            return 1000
         arrival_n = self.timeout_clock[destination][0]
         deviation_n = self.timeout_clock[destination][1]
         return arrival_n + 4 * max(deviation_n, 1)

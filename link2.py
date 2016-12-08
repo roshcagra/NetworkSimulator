@@ -6,6 +6,7 @@ debug_state = False
 
 class Link:
     def __init__(self, link_rate, link_delay, max_buffer_size, env):
+        self.env = env
         self.devices = {} # ip -> device object
         self.link_rate = link_rate # aka capacity/transmission delay
         self.link_delay = link_delay # propogation delay
@@ -24,9 +25,9 @@ class Link:
         self.sum_queuetime = 0  # sum of all queue wait times
         self.sum_packets = 0 # sum of sizes of all sent packets
 
-    def add_device(self, device, env):
+    def add_device(self, device):
         self.devices[device.ip] = device
-        self.send[device.ip] = simpy.Resource(env, capacity=1)
+        self.send[device.ip] = simpy.Resource(self.env, capacity=1)
 
     def getOtherDevice(self, my_ip):
         for ip in self.devices:
