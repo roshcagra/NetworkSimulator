@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = False
+debug_state = True
 
 aws = float('inf')
 
@@ -242,7 +242,7 @@ class Host(Device):
                 if debug_state:
                     print('Stopping Fast Recovery', self.window_size[destination], self.ss_thresh[destination])
                 self.window_size[destination] = self.ss_thresh[destination]
-                self.window_size[destination] += (1 / self.window_size[destination])
+                self.window_size[destination] += (1 / math.floor(self.window_size[destination]))
             self.last_acknowledged[destination] = (packet_id, 1)
             if self.window_size[destination] < self.ss_thresh[destination]:
                 self.window_size[destination] += 1
@@ -284,6 +284,9 @@ class Host(Device):
                     g = 0.05
                     a = 10
                     self.window_size[destination] = min(2 * curr_wsize, (1 - g) * curr_wsize + g * ((base_rtt / last_rtt) * curr_wsize + a))
+                if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
+                    self.flow_reactivate[destination].succeed()
+                    self.flow_reactivate[destination] = env.event()
         except simpy.Interrupt:
             return
 
