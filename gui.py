@@ -81,7 +81,7 @@ class NetworkGUI(tk.Tk):
 
 	def run(self):
 		global devices
-		r = env.process(dynamic_routing(devices, 500, env))
+		r = env.process(dynamic_routing(devices, 5000, env))
 		env.run()
 		for device in devices:
 		    device_name = "Device " + str(device.ip)
