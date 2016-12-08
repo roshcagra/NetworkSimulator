@@ -57,11 +57,11 @@ class NetworkGUI(tk.Tk):
 		entry2.grid(row=1, column=1)
 		entry3 = StringVar(master)
 		entry3.set(device_ip[0])
-		w = OptionMenu(master, entry3, device_ip)
+		w = OptionMenu(master, entry3, *device_ip)
 		w.grid()
 		entry4 = StringVar(master)
 		entry4.set(device_ip[0])
-		w = OptionMenu(master, entry4, device_ip)
+		w = OptionMenu(master, entry4, *device_ip)
 		w.grid()
 		entry5 = StringVar(master)
 		entry5.set("FAST")
@@ -202,6 +202,8 @@ class NetworkGUI(tk.Tk):
 					button1=Button(master, text="Create", command=create_link)
 					button1.grid(row=4, column=1)
 
+				elif self.clicked_idx == idx:
+					pass
 				else:
 					self.clicked_idx = idx
 					break
