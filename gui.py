@@ -81,7 +81,7 @@ class NetworkGUI(tk.Tk):
 
 	def run(self):
 		global devices
-		r = env.process(dynamic_routing(devices, 500, env))
+		r = env.process(dynamic_routing(devices, 5000, env))
 		env.run()
 		for device in devices:
 		    device_name = "Device " + str(device.ip)
@@ -201,6 +201,7 @@ class NetworkGUI(tk.Tk):
 
 					button1=Button(master, text="Create", command=create_link)
 					button1.grid(row=4, column=1)
+					break
 
 				elif self.clicked_idx == idx:
 					pass
