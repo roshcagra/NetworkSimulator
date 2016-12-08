@@ -202,6 +202,8 @@ class NetworkGUI(tk.Tk):
 					button1=Button(master, text="Create", command=create_link)
 					button1.grid(row=4, column=1)
 
+				elif self.clicked_idx == idx:
+					pass
 				else:
 					self.clicked_idx = idx
 					break
