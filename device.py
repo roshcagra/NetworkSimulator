@@ -330,6 +330,8 @@ class Host(Device):
             self.receive_fast_ack(packet, env)
 
     def send_ack(self, packet_id, source, env):
+        if debug_state:
+            print('Sending AckPacket', packet_id, 'at', env.now)
         env.process(self.links[0].send_packet(AckPacket(packet_id, self.ip, source), self.ip, env))
 
     def get_next_ack(self, packet_source):

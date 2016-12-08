@@ -72,7 +72,6 @@ class Link:
             # self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
             # self.sum_packets += packet.size
 
-            # TODO
             self.graph_dropped.add_point(env.now, self.current_dropped)
             self.current_dropped = 0
             self.graph_dropped.add_point(env.now, self.current_dropped)
