@@ -110,6 +110,5 @@ def graph_live(devices, links, env, hosts_to_graph='all', links_to_graph='all'):
         plt.draw()
         plt.pause(0.01)
 
-    print('fuckyou')
     plt.ioff()
     plt.show()
