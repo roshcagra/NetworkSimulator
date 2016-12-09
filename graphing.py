@@ -4,12 +4,15 @@ from matplotlib import pyplot as plt
 # import matplotlib.pyplot as plt
 
 class Graph:
-    def __init__(self, title, filename):
+    def __init__(self, title, filename, gid):
         self.title = title
         self.time = []  # x axis
         self.val = []   # y axis
-        self.name = ''
+        self.g_id = gid
+        self.name = filename + str(self.g_id)
         self.filename = filename
+        datafile = open("log/" + self.name + ".txt", "w") # Clear log
+        datafile.close()
 
     def add_point(self, time, value):
         # if self.time[-1] == time:
@@ -22,15 +25,15 @@ class Graph:
         self.val.append(value)
 
         # Write to external file for plotting on a seperate python script
-        file = open("data/" + self.filename + ".txt","a")
-        file.write(str(time) + "," + str(value) + "\n")
-        file.close()
+        datafile = open("data/" + self.name + ".txt","a")
+        datafile.write(str(time) + "," + str(value) + "\n")
+        datafile.close()
 
-        # Log
-        file = open("log/" + self.filename + ".txt","a")
-        #file.write(str(time) + "," + str(value) + "\n")
-        file.write(str(time) + "," + str(value) + "\n")
-        file.close()
+        # Log an individual file for each link
+        datafile = open("log/" + self.name + ".txt","a")
+        #datafile.write(str(time) + "," + str(value) + "\n")
+        datafile.write(str(time) + "," + str(value) + "\n")
+        datafile.close()
 
         # if len(self.time) > 50: # Arbitrary graph scrolling window size
         #     self.time.pop(0)

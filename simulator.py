@@ -11,7 +11,8 @@ env = simpy.Environment()
 data1 = 2 * 10 ** 7
 #data1 = 2 * 10 ** 7
 devices = [Host(ip=0), Host(ip=1)]
-links = [Link(link_rate=(2.578 * 10 ** 11), link_delay=10, max_buffer_size=64000, env=env)]
+links = [
+Link(l_id=0, link_rate=(2.578 * 10 ** 11), link_delay=10, max_buffer_size=64000, env=env)]
 
 devices[0].add_link(links[0])
 devices[1].add_link(links[0])
@@ -38,7 +39,7 @@ for device in devices:
         device.graph_flowrate.set_name(device_name)
         device.graph_flowrate.plot()
 
-for i in range(2, len(links)):
+for i in range(0, len(links)):
     link = links[i]
     link.graph_dropped.set_name("Link " + str(i))
     link.graph_dropped.plot()
