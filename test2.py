@@ -102,21 +102,21 @@ devices[9].add_link(links[7])
 devices[9].add_link(links[8])
 
 #F1
-# data1 = 35 * 10 ** 6
-data1 = 1024 * 2000
+data1 = 35 * 10 ** 6
+# data1 = 1024 * 2000
 p = env.process(flow(data1, 500, devices[0], 1, env, 'Reno'))
 
 #F2
-# data2 = 15 * 10 ** 6
-data2 = 1024 * 2000
+data2 = 15 * 10 ** 6
+# data2 = 1024 * 2000
 p = env.process(flow(data2, 10000, devices[2], 3, env, 'Reno'))
 
 #F3
-# data2 = 30 * 10 ** 6
-data3 = 1024 * 2000
+data2 = 30 * 10 ** 6
+# data3 = 1024 * 2000
 p = env.process(flow(data2, 20000, devices[4], 5, env, 'Reno'))
 r = env.process(dynamic_routing(devices=devices, interval=5000, sim_env=env))
-g = env.process(graph_live(devices, links, [0, 1, 2, 3, 4, 5], [1, 2, 3], env))
+g = env.process(graph_live(devices, links, env, [0, 1, 2, 3, 4, 5], [1, 2, 3]))
 # events is the list of other processes besides the routing process. once all the events have been processed
 # the dynamic routing process knows to stop.
 

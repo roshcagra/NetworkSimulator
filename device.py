@@ -6,11 +6,11 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = True
+debug_state = False
 
 aws = float('inf')
 
-update_interval = 100
+update_interval = 500
 
 class Device:
     def __init__(self, ip):
@@ -121,6 +121,7 @@ class Host(Device):
         self.received = {}
 
         self.type = 'host'
+        self.num_flows = 0
 
     def get_curr_window_length(self, destination):
         return self.window[destination][1] - self.window[destination][0]
@@ -140,6 +141,7 @@ class Host(Device):
         self.graph_delay[destination] = Graph("Device" + str(self.ip) + " to Device " + str(destination))
         self.last_delay_check[destination] = 0
         self.delays[destination] = []
+        self.num_flows += 1
 
         if tcp_type == 'Reno':
             self.tcp_type[destination] = 'Reno'
@@ -186,6 +188,7 @@ class Host(Device):
             yield self.flow_reactivate[destination]
 
     def end_flow(self, destination, env):
+        self.num_flows -= 1
         if self.timer[destination].is_alive:
             self.timer[destination].interrupt('end')
 
@@ -335,14 +338,6 @@ class Host(Device):
             self.last_new[destination] = env.now
             self.window[destination] = (packet_id, max(self.window[destination][1], packet_id))
             self.last_acknowledged[destination] = (packet_id, 1)
-        elif self.last_acknowledged[destination][0] == packet_id:
-            self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
-            if self.last_acknowledged[destination][1] == 4:
-                if debug_state:
-                    print('Duplicate Acks received. Resetting and Retransmitting')
-                self.retransmit(destination, env)
-                self.window_size[destination] = 1
-                self.fast_RTT[destination] = (float('inf'), float('inf'))
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()

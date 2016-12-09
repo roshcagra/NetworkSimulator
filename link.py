@@ -2,7 +2,7 @@ import simpy
 from graphing import Graph
 from packet import RouterPacket
 
-debug_state = True
+debug_state = False
 update_interval = 500
 
 class Link:
@@ -45,6 +45,7 @@ class Link:
     def update_buffocc(self, time):
         if self.last_buff_occ_check + update_interval < time:
             buffer_average = sum(self.buffer_sizes) / len(self.buffer_sizes)
+            self.graph_buffocc.add_point(self.last_buff_occ_check, buffer_average)
             self.graph_buffocc.add_point(time, buffer_average)
             self.last_buff_occ_check = time
             self.buffer_sizes = []
@@ -52,26 +53,32 @@ class Link:
     def update_linkrate(self, time):
         if self.last_linkrate_check + update_interval < time:
             curr_count = self.linkrate_count
-            self.graph_linkrate.add_point(time, curr_count * (8 * 10 ** (-6)) / ((time - self.last_linkrate_check) / 1000))
+            curr_val = curr_count * (8 * 10 ** (-6)) / ((time - self.last_linkrate_check) / 1000)
+            self.graph_linkrate.add_point(self.last_linkrate_check, curr_val)
+            self.graph_linkrate.add_point(time, curr_val)
             self.last_linkrate_check = time
             self.linkrate_count = 0
 
     def insert_into_buffer(self, packet, packet_size, env):
-        self.buffer_sizes.append(self.buffer.capacity - self.buffer.level)
-        self.update_buffocc(env.now)
-
         if packet_size <= self.buffer.level:
             self.buffer.get(packet_size)
 
             packet.t_enterbuff = env.now
             if isinstance(packet, RouterPacket):
                 self.router_occ_size += RouterPacket.size
+
+            self.buffer_sizes.append(self.buffer.capacity - self.buffer.level)
+            self.update_buffocc(env.now)
+
             return True
         else:
             return False
 
     def remove_from_buffer(self, packet, packet_size, env):
         self.buffer.put(packet_size)
+
+        self.buffer_sizes.append(self.buffer.capacity - self.buffer.level)
+        self.update_buffocc(env.now)
         if isinstance(packet, RouterPacket):
             self.router_occ_size -= RouterPacket.size
 
