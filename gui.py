@@ -13,6 +13,8 @@ from device import Router
 from link import Link
 from utils import flow
 from utils import dynamic_routing
+from utils import graph_live
+
 env = simpy.Environment()
 
 class NetworkGUI(tk.Tk):
@@ -83,6 +85,7 @@ class NetworkGUI(tk.Tk):
     def run(self):
         global devices
         r = env.process(dynamic_routing(devices, 5000, env))
+        g = env.process(graph_live(devices=devices, links=links, env=env))
         env.run()
         # for device in devices:
         #     device_name = "Device " + str(device.ip)
