@@ -1,7 +1,7 @@
 import simpy
 from device import Host
 from device import Router
-from link2 import Link
+from link import Link
 from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()

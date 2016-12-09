@@ -179,7 +179,7 @@ FAST has no additional variables or methods for the receiver.
 - `remove_from_buffer(packet)`: remove the packet to the buffer
 - `send_packet(packet, source)`:
   - If there is any room in the buffer, add the packet to the buffer using `insert_into_buffer(packet)`
-    1. When the packet is at the top of the buffer, send it and remove it from the buffer using `remove_from_buffer(packet)`
+    1. When the packet is at the top of the buffer, pass it onto the device at the other end and remove it from the buffer using `remove_from_buffer(packet)`
   - If there isn't any room, drop the packet
 
 

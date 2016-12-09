@@ -281,10 +281,8 @@ class Host(Device):
                 if self.last_acknowledged[destination][0] > 0:
                     self.graph_wsize.add_point(env.now, self.window_size[destination])
                     (base_rtt, last_rtt) = self.fast_RTT[destination]
-                    print('RTT Frac', base_rtt / last_rtt)
                     curr_wsize = self.window_size[destination]
                     self.window_size[destination] = min(2 * curr_wsize, (1 - gamma) * curr_wsize + gamma * ((base_rtt / last_rtt) * curr_wsize + alpha))
-                    print('New Window Size', self.window_size[destination])
                     self.graph_wsize.add_point(env.now, self.window_size[destination])
                 if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
                     self.flow_reactivate[destination].succeed()
@@ -310,15 +308,6 @@ class Host(Device):
         if self.last_acknowledged[destination][0] < packet_id:
             self.window[destination] = (packet_id, max(self.window[destination][1], packet_id))
             self.last_acknowledged[destination] = (packet_id, 1)
-        elif self.last_acknowledged[destination][0] == packet_id:
-            self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
-            if self.last_acknowledged[destination][1] == 4:
-                if debug_state:
-                    print('Duplicate acks received. Retransmitting and resetting.')
-                self.window_size[destination] = 1
-                self.graph_wsize.add_point(env.now, self.window_size[destination])
-                self.window[destination] = (packet_id, packet_id + 1)
-                self.retransmit(destination, env)
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
