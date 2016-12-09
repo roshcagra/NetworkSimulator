@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = False
+debug_state = True
 
 aws = float('inf')
 
@@ -119,6 +119,8 @@ class Host(Device):
         self.delays = {}
 
         self.received = {}
+
+        self.type = 'host'
 
     def get_curr_window_length(self, destination):
         return self.window[destination][1] - self.window[destination][0]

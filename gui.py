@@ -27,6 +27,7 @@ class NetworkGUI(tk.Tk):
         self.create_flow = tk.Button(text="Create Flow", command=self.create_flow)
         self.create_flow.pack(side=tk.RIGHT)
         self.set_ip = 0
+        self.set_l_id = 0
         self.clicked_flow = -1
         self.clicked_idx = -1
         self.increment = 5
@@ -83,24 +84,24 @@ class NetworkGUI(tk.Tk):
         global devices
         r = env.process(dynamic_routing(devices, 5000, env))
         env.run()
-        for device in devices:
-            device_name = "Device " + str(device.ip)
-            device.graph_wsize.set_name(device_name)
-            device.graph_wsize.plot()
-            device.graph_flowrate.set_name(device_name)
-            device.graph_flowrate.plot()
+        # for device in devices:
+        #     device_name = "Device " + str(device.ip)
+        #     device.graph_wsize.set_name(device_name)
+        #     device.graph_wsize.plot()
+        #     device.graph_flowrate.set_name(device_name)
+        #     device.graph_flowrate.plot()
 
-        for i in range(0, len(links)):
-            link = links[i]
-            link.graph_dropped.set_name("Link " + str(i))
-            link.graph_dropped.plot()
-            link.graph_buffocc.set_name("Link " + str(i))
-            link.graph_buffocc.plot()
-            link.graph_buffocc.plot()
-            link.graph_linkrate.set_name("Link " + str(i))
-            link.graph_linkrate.plot()
-            link.graph_delay.set_name("Link " + str(i))
-            link.graph_delay.plot()
+        # for i in range(0, len(links)):
+        #     link = links[i]
+        #     link.graph_dropped.set_name("Link " + str(i))
+        #     link.graph_dropped.plot()
+        #     link.graph_buffocc.set_name("Link " + str(i))
+        #     link.graph_buffocc.plot()
+        #     link.graph_buffocc.plot()
+        #     link.graph_linkrate.set_name("Link " + str(i))
+        #     link.graph_linkrate.plot()
+        #     link.graph_delay.set_name("Link " + str(i))
+        #     link.graph_delay.plot()
 
     def key_handler(self, event):
         global devices
@@ -187,9 +188,10 @@ class NetworkGUI(tk.Tk):
                         if entry1.get().replace('.','',1).isdigit() and entry2.get().replace('.','',1).isdigit() and entry3.get().replace('.','',1).isdigit():
                             link_text = "LR:" + entry1.get() + "\nLD:" + entry2.get() + "\nMBS:" + entry3.get()
                             text_id = self.canvas.create_text((cor1_x + cor2_x) / 2, (cor1_y + cor2_y) / 2, text=link_text)
-                            link_val = Link(link_rate=float(entry1.get()) * 1.25 * 10**5, link_delay=float(entry2.get()), max_buffer_size=float(entry3.get()) * 10**3, env=env)
+                            link_val = Link(l_id=self.set_l_id, link_rate=float(entry1.get()) * 1.25 * 10**5, link_delay=float(entry2.get()), max_buffer_size=float(entry3.get()) * 10**3, env=env)
                             links.append(link_val)
                             link_id.append(link)
+                            self.set_l_id += 1
 
                             link_val.add_device(devices[self.clicked_idx])
                             link_val.add_device(devices[idx])

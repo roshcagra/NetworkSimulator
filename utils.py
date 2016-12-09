@@ -1,7 +1,7 @@
 from device import Router
 from device import Host
 import simpy
-import matplotlib.pyplot as plt
+
 
 def flow(data, start, source, destination, sim_env, tcp_type, gamma=0.5, alpha=15):
     yield sim_env.timeout(start)
@@ -24,6 +24,7 @@ def all_events_processed(sim_env):
     return sim_env.peek() == simpy.core.Infinity
 
 def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
+    import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(20, 10))
     fig.set_tight_layout(True)
     plt.ion()
