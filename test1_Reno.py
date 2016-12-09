@@ -7,7 +7,9 @@ from utils import dynamic_routing
 from utils import graph_live
 env = simpy.Environment()
 
-data1 = 20 * 10 ** 6
+# data1 = 20 * 10 ** 6
+data1 = 1024*2000
+
 
 devices = [Host(ip=0), Host(ip=1),
 Router(ip=2),

@@ -14,14 +14,20 @@ def dynamic_routing(devices, interval, sim_env):
                 device.send_router(sim_env)
         yield sim_env.timeout(interval)
 
-        if all_events_processed(sim_env):
+        if all_events_processed(devices, sim_env):
             print('All flows are dead. Simulation is over. Stop running routing algorithm. ')
             break
 
 # Events is a list of simpy 'Events.' When the event is done (for example, if the event is a flow, the event
 # is done when the flow is done sending packets), event.processed will be set to True
-def all_events_processed(sim_env):
-    return sim_env.peek() == simpy.core.Infinity
+def all_events_processed(devices, sim_env):
+    for device in devices:
+        if isinstance(device, Host):
+            if device.num_flows != 0:
+                return False
+    return True
+
+    # return sim_env.peek() == simpy.core.Infinity
 
 def graph_live(devices, links, env, hosts_to_graph='all', links_to_graph='all'):
     import matplotlib.pyplot as plt
@@ -47,6 +53,9 @@ def graph_live(devices, links, env, hosts_to_graph='all', links_to_graph='all'):
     colors = ["blue", "red", "green", "black", "brown", "orange", "purple"]
 
     while True:
+        if env.peek() == simpy.core.Infinity:
+            print('GRAPHING DONE!')
+            break
         yield env.timeout(1000)
         wsize_legend = []
         flowrate_legend = []
@@ -58,17 +67,17 @@ def graph_live(devices, links, env, hosts_to_graph='all', links_to_graph='all'):
             if isinstance(device, Host):
                 for destination in device.graph_wsize:
                     curr_wsize_graph = device.graph_wsize[destination]
-                    axes["wsize"].plot(curr_wsize_graph.times, curr_wsize_graph.vals, color=colors[device.ip])
+                    axes["wsize"].plot(curr_wsize_graph.times, curr_wsize_graph.vals, color=colors[device.ip%len(colors)])
                     wsize_legend.append(curr_wsize_graph.title)
                 for destination in device.graph_delay:
                     curr_delay_graph = device.graph_delay[destination]
-                    axes["delay"].plot(curr_delay_graph.times, curr_delay_graph.vals, color=colors[device.ip])
+                    axes["delay"].plot(curr_delay_graph.times, curr_delay_graph.vals, color=colors[device.ip%len(colors)])
                     if len(curr_delay_graph.vals) > 0:
                         max_delay = max(max_delay, max(curr_delay_graph.vals))
                     delay_legend.append(curr_delay_graph.title)
                 for source in device.graph_flowrate:
                     curr_flowrate_graph = device.graph_flowrate[source]
-                    axes["flowrate"].plot(curr_flowrate_graph.times, curr_flowrate_graph.vals, color=colors[device.ip])
+                    axes["flowrate"].plot(curr_flowrate_graph.times, curr_flowrate_graph.vals, color=colors[device.ip%len(colors)])
                     flowrate_legend.append(curr_flowrate_graph.title)
 
         axes["wsize"].legend(wsize_legend)
@@ -83,15 +92,15 @@ def graph_live(devices, links, env, hosts_to_graph='all', links_to_graph='all'):
             if links_to_graph != 'all' and link.id not in links_to_graph:
                 continue
             curr_graph = link.graph_buffocc
-            axes["buffocc"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id])
+            axes["buffocc"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id%len(colors)])
             buffocc_legend.append(curr_graph.title)
 
             curr_graph = link.graph_linkrate
-            axes["linkrate"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id])
+            axes["linkrate"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id%len(colors)])
             linkrate_legend.append(curr_graph.title)
 
             curr_graph = link.graph_dropped
-            axes["dropped"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id])
+            axes["dropped"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id%len(colors)])
             dropped_legend.append(curr_graph.title)
 
         axes["buffocc"].legend(buffocc_legend)
@@ -100,3 +109,7 @@ def graph_live(devices, links, env, hosts_to_graph='all', links_to_graph='all'):
 
         plt.draw()
         plt.pause(0.01)
+
+    print('fuckyou')
+    plt.ioff()
+    plt.show()
