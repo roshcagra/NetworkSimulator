@@ -2,7 +2,7 @@ import simpy
 from graphing import Graph
 from packet import RouterPacket
 
-debug_state = False
+debug_state = True
 update_interval = 500
 
 class Link:
