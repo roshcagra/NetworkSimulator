@@ -112,9 +112,9 @@ data2 = 15 * 10 ** 6
 p = env.process(flow(data2, 10000, devices[2], 3, env, 'FAST'))
 
 #F3
-data2 = 30 * 10 ** 6
+data3 = 30 * 10 ** 6
 # data3 = 1024 * 2000
-p = env.process(flow(data2, 20000, devices[4], 5, env, 'FAST'))
+p = env.process(flow(data3, 20000, devices[4], 5, env, 'FAST'))
 r = env.process(dynamic_routing(devices=devices, interval=5000, sim_env=env))
 g = env.process(graph_live(devices, links, env, [0, 1, 2, 3, 4, 5], [1, 2, 3]))
 # events is the list of other processes besides the routing process. once all the events have been processed
