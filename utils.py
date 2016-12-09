@@ -23,7 +23,7 @@ def dynamic_routing(devices, interval, sim_env):
 def all_events_processed(sim_env):
     return sim_env.peek() == simpy.core.Infinity
 
-def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
+def graph_live(devices, links, env, hosts_to_graph='all', links_to_graph='all'):
     import matplotlib.pyplot as plt
     fig = plt.figure(figsize=(20, 10))
     fig.set_tight_layout(True)
@@ -53,7 +53,7 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
         delay_legend = []
         max_delay = 0
         for device in devices:
-            if device.ip not in hosts_to_graph:
+            if hosts_to_graph != 'all' and device.ip not in hosts_to_graph:
                 continue
             if isinstance(device, Host):
                 for destination in device.graph_wsize:
@@ -80,7 +80,7 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
         dropped_legend = []
         linkrate_legend = []
         for link in links:
-            if link.id not in links_to_graph:
+            if links_to_graph != 'all' and link.id not in links_to_graph:
                 continue
             curr_graph = link.graph_buffocc
             axes["buffocc"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id])

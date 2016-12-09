@@ -18,6 +18,6 @@ links[0].add_device(devices[0])
 links[0].add_device(devices[1])
 
 p = env.process(flow(data1, 1000, devices[0], 1, env, 'FAST', 0.5, 10))
-p = env.process(graph_live(devices, links, [0, 1], [0], env))
+p = env.process(graph_live(devices, links, env, [0, 1], [0]))
 
 env.run()
