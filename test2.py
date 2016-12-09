@@ -4,6 +4,7 @@ from device import Router
 from link import Link
 from utils import flow
 from utils import dynamic_routing
+from utils import graph_live
 env = simpy.Environment()
 
 # routing table maps to link object, not the idx in list
@@ -114,31 +115,10 @@ p = env.process(flow(data2, 10000, devices[2], 3, env, 'Reno'))
 # data2 = 30 * 10 ** 6
 data3 = 1024 * 2000
 p = env.process(flow(data2, 20000, devices[4], 5, env, 'Reno'))
-
 r = env.process(dynamic_routing(devices=devices, interval=5000, sim_env=env))
-
+g = env.process(graph_live(devices, links, [0, 1, 2, 3, 4, 5], [1, 2, 3], env))
 # events is the list of other processes besides the routing process. once all the events have been processed
 # the dynamic routing process knows to stop.
 
 
 env.run()
-
-
-for device in devices:
-    if isinstance(device, Host):
-        device_name = "Device " + str(device.ip)
-        device.graph_wsize.set_name(device_name)
-        device.graph_wsize.plot()
-        device.graph_flowrate.set_name(device_name)
-        device.graph_flowrate.plot()
-
-for i in range(2, len(links)):
-    link = links[i]
-    link.graph_dropped.set_name("Link " + str(i))
-    link.graph_dropped.plot()
-    link.graph_buffocc.set_name("Link " + str(i))
-    link.graph_buffocc.plot()
-    link.graph_linkrate.set_name("Link " + str(i))
-    link.graph_linkrate.plot()
-    link.graph_delay.set_name("Link " + str(i))
-    link.graph_delay.plot()

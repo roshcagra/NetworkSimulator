@@ -3,7 +3,6 @@
 # Run this in a separate terminal window as the simulator is running
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import time
 
 fig = plt.figure(figsize=(8, 10))
 #fig.tight_layout()
@@ -15,18 +14,18 @@ fig.set_tight_layout(True)
 axes = {}
 axes["wsize"] = fig.add_subplot(6,1,1)
 axes["flowrate"] = fig.add_subplot(6,1,2)
-axes["delay"] = fig.add_subplot(6,1,3)
-axes["linkrate"] = fig.add_subplot(6,1,4)
-axes["dropped"] = fig.add_subplot(6,1,5)
-axes["buffocc"] = fig.add_subplot(6,1,6)
+# axes["delay"] = fig.add_subplot(6,1,3)
+# axes["linkrate"] = fig.add_subplot(6,1,4)
+# axes["dropped"] = fig.add_subplot(6,1,5)
+# axes["buffocc"] = fig.add_subplot(6,1,6)
 
 data = {}
 data["wsize"] = [[], []]
 data["flowrate"] = [[], []]
-data["delay"] = [[], []]
-data["linkrate"] = [[], []]
-data["dropped"] = [[], []]
-data["buffocc"] = [[], []]
+# data["delay"] = [[], []]
+# data["linkrate"] = [[], []]
+# data["dropped"] = [[], []]
+# data["buffocc"] = [[], []]
 
 gid = "0"
 

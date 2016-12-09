@@ -10,20 +10,15 @@ debug_state = False
 
 aws = float('inf')
 
+update_interval = 100
+
 class Device:
     def __init__(self, ip):
         self.ip = ip
         self.links = []
-        self.graph_flowrate = Graph("Flow Rate", "flowrate", self.ip)
-        self.flowinterval = 100
-        self.flowcur = 0
-        self.flowstart = 0
-        self.graph_wsize = Graph("Window Size", "wsize", self.ip)
-
 
     def add_link(self, link):
         self.links.append(link)
-
 
 class Router(Device):
     def __init__(self, ip, routing_table=None):
@@ -112,10 +107,12 @@ class Host(Device):
         # FAST TCP
         self.fast_RTT = {}
 
+        self.graph_wsize = {}
+        self.graph_flowrate = {}
+        self.last_flow_check = {}
+        self.flow_count = {}
+
         self.received = {}
-        self.num_received = 0
-        self.num_sent = 0
-        self.type = "host"
 
     def get_curr_window_length(self, destination):
         return self.window[destination][1] - self.window[destination][0]
@@ -124,7 +121,6 @@ class Host(Device):
         if not is_retransmit:
             self.send_times[destination][p_id] = env.now
         else:
-            self.num_sent += 1
             self.send_times[destination].pop(p_id, None)
         if debug_state:
             print('Sending DataPacket', p_id, 'at', env.now)
@@ -132,6 +128,8 @@ class Host(Device):
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
     def start_flow(self, data, destination, env, tcp_type='Reno', gamma=0.5, alpha=15):
+        self.graph_wsize[destination] = Graph("Device" + str(self.ip) + " to Device " + str(destination))
+
         if tcp_type == 'Reno':
             self.tcp_type[destination] = 'Reno'
             env.process(self.start_reno_flow(data, destination, env))
@@ -210,12 +208,12 @@ class Host(Device):
             if debug_state:
                 print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
             self.ss_thresh[destination] = math.floor(self.window_size[destination] / 2)
-            self.graph_wsize.add_point(env.now, self.window_size[destination])
+            self.graph_wsize[destination].add_point(env.now, self.window_size[destination])
             self.retransmit(destination, env)
             self.window_size[destination] = 1
             self.window[destination] = (self.window[destination][0], self.window[destination][0] + 1)
             self.timer[destination] = env.process(self.reset_timer(destination, try_number + 1, env))
-            self.graph_wsize.add_point(env.now, self.window_size[destination])
+            self.graph_wsize[destination].add_point(env.now, self.window_size[destination])
         except simpy.Interrupt as message:
             if message.cause == 'reset':
                 self.timer[destination] = env.process(self.reset_timer(destination, 1, env))
@@ -229,7 +227,7 @@ class Host(Device):
             self.end_flow(destination, env)
             return
 
-        self.graph_wsize.add_point(env.now, self.window_size[destination])
+        self.graph_wsize[destination].add_point(env.now, self.window_size[destination])
 
         if (self.last_acknowledged[destination][0] == packet_id - 1) and (packet_id - 1) in self.send_times[destination]:
             self.update_timeout_clock(self.send_times[destination][packet_id - 1], env.now, destination)
@@ -264,7 +262,7 @@ class Host(Device):
             elif self.last_acknowledged[destination][1] > 4:
                 self.window_size[destination] += 1
 
-        self.graph_wsize.add_point(env.now, self.window_size[destination])
+        self.graph_wsize[destination].add_point(env.now, self.window_size[destination])
 
         if debug_state:
             print('Window Size:', self.window_size[destination])
@@ -276,13 +274,16 @@ class Host(Device):
     def update_window(self, destination, gamma, alpha, env):
         try:
             while True:
-                yield env.timeout(20)
+                if self.fast_RTT[destination][0] < float('inf'):
+                    yield env.timeout(self.fast_RTT[destination][0] + 1)
+                else:
+                    yield env.timeout(30)
                 if self.last_acknowledged[destination][0] > 0:
-                    self.graph_wsize.add_point(env.now, self.window_size[destination])
+                    self.graph_wsize[destination].add_point(env.now, self.window_size[destination])
                     (base_rtt, last_rtt) = self.fast_RTT[destination]
                     curr_wsize = self.window_size[destination]
                     self.window_size[destination] = min(2 * curr_wsize, (1 - gamma) * curr_wsize + gamma * ((base_rtt / last_rtt) * curr_wsize + alpha))
-                    self.graph_wsize.add_point(env.now, self.window_size[destination])
+                    self.graph_wsize[destination].add_point(env.now, self.window_size[destination])
                 if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
                     self.flow_reactivate[destination].succeed()
                     self.flow_reactivate[destination] = env.event()
@@ -333,33 +334,38 @@ class Host(Device):
             expected += 1
         return expected
 
+    def update_flowrate(self, source, time):
+        if self.last_flow_check[source] + update_interval < time:
+            curr_count = self.flow_count[source]
+            self.graph_flowrate[source].add_point(time, curr_count * 1024.0 / (time - self.last_flow_check[source]))
+            self.flow_count[source] = 0
+            self.last_flow_check[source] = time
+
     def receive_data(self, packet, env):
         packet_id = packet.id
         packet_source = packet.source
 
+        if packet_source not in self.graph_flowrate:
+            self.graph_flowrate[packet_source] = Graph("Device " + str(packet_source) + " to Device " + str(self.ip))
+            self.last_flow_check[packet_source] = env.now
+
         if packet_source not in self.received:
             self.received[packet_source] = [packet_id]
+            self.flow_count[packet_source] = 1
         elif packet_id in self.received[packet_source]:
             return
         else:
             self.received[packet_source].append(packet_id)
             self.received[packet_source].sort()
+            self.flow_count[packet_source] += 1
+
+        self.update_flowrate(packet_source, env.now)
 
         self.send_ack(self.get_next_ack(packet_source), packet_source, env)
 
     def receive_packet(self, packet, env):
         if debug_state and not isinstance(packet, RouterPacket):
             print('Time', env.now, 'Host received', packet.__class__.__name__, packet.id, 'from Device', packet.source)
-        self.num_received += 1
-        self.flowcur += packet.size
-        #if self.num_sent > 0:
-        #    self.graph_flowrate.add_point(env.now, self.num_received/self.num_sent)
-
-        if self.flowinterval + self.flowstart <= env.now:
-            # reached interval
-            self.graph_flowrate.add_point(env.now, self.flowcur/(env.now - self.flowstart*1.0))
-            self.flowstart = env.now
-            self.flowcur = 0
 
 
         if isinstance(packet, DataPacket):

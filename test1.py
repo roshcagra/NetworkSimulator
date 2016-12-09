@@ -4,9 +4,10 @@ from device import Router
 from link import Link
 from utils import flow
 from utils import dynamic_routing
+from utils import graph_live
 env = simpy.Environment()
 
-data1 = 1024 * 4000
+data1 = 1024 * 20000
 
 # data1 = 1024 * 5000 * 0
 
@@ -77,29 +78,10 @@ devices[5].add_link(links[5])
 
 p = env.process(flow(data1, 500, devices[0], 1, env, 'FAST', 0.5, 15))
 r = env.process(dynamic_routing(devices=devices, interval=5000, sim_env=env))
+p = env.process(graph_live(devices, links, [0, 1], [1, 2], env))
 
 # events is the list of other processes besides the routing process. once all the events have been processed
 # the dynamic routing process knows to stop.
 
 
 env.run()
-
-
-for device in devices:
-    if isinstance(device, Host):
-        device_name = "Device " + str(device.ip)
-        device.graph_wsize.set_name(device_name)
-        device.graph_wsize.plot()
-        device.graph_flowrate.set_name(device_name)
-        device.graph_flowrate.plot()
-
-for i in range(2, len(links)):
-    link = links[i]
-    link.graph_dropped.set_name("Link " + str(i))
-    link.graph_dropped.plot()
-    link.graph_buffocc.set_name("Link " + str(i))
-    link.graph_buffocc.plot()
-    link.graph_linkrate.set_name("Link " + str(i))
-    link.graph_linkrate.plot()
-    link.graph_delay.set_name("Link " + str(i))
-    link.graph_delay.plot()

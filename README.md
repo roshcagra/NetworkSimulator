@@ -136,12 +136,7 @@ AckPacket has no additional variables or methods
 - `receive_fast_ack(Ack_Packet -> (p_id))`:
   1. If the acknowledgment is the next expected one, call `update_rtt(Ack_Packet.send_time, current_time)`
   2. If the acknowledgment is higher than the last one received, set `last_acknowledged = (p_id, 1)` and `window = [p_id, window.end)`
-  3. If it is equal to the last ack received, set `last_acknowledged = (p_id, last_acknowledged.number + 1)`
-    - If this is the fourth duplicate acknowledgment, assume failure and
-      1. Call `retransmit()`
-      2. Set `window_size = 1`
-      3. Set `window = [window.start, window.start + 1)`
-  5. If `len(window) < window_size` (i.e. the current flight size is less than the maximum allowed), then reactivate `start_fast_flow`
+  3. If `len(window) < window_size` (i.e. the current flight size is less than the maximum allowed), then reactivate `start_fast_flow`
 
 #### Receiver (General)
 ##### Variables
