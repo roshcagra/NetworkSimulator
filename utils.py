@@ -24,23 +24,23 @@ def all_events_processed(sim_env):
     return sim_env.peek() == simpy.core.Infinity
 
 def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
-    fig = plt.figure(figsize=(8, 10))
+    fig = plt.figure(figsize=(20, 10))
     fig.set_tight_layout(True)
     plt.ion()
 
     axes = {}
     axes["wsize"] = fig.add_subplot(6,1,1)
-    axes["wsize"].set_ylabel('Window Size')
+    axes["wsize"].set_ylabel('Window Size\n (Packets)')
     axes["flowrate"] = fig.add_subplot(6,1,2)
-    axes["flowrate"].set_ylabel('Flow Rate')
+    axes["flowrate"].set_ylabel('Flow Rate\n (Mbps)')
     axes["buffocc"] = fig.add_subplot(6,1,6)
-    axes["buffocc"].set_ylabel('Buffer Occupancy')
+    axes["buffocc"].set_ylabel('Buffer Occupancy\n (Bytes)')
     axes["delay"] = fig.add_subplot(6,1,3)
-    axes["delay"].set_ylabel('Packet Delay')
+    axes["delay"].set_ylabel('Packet Delay\n (ms)')
     axes["linkrate"] = fig.add_subplot(6,1,4)
-    axes["linkrate"].set_ylabel('Link Rate')
+    axes["linkrate"].set_ylabel('Link Rate\n (Mbps)')
     axes["dropped"] = fig.add_subplot(6,1,5)
-    axes["dropped"].set_ylabel('Packets Dropped')
+    axes["dropped"].set_ylabel('Packets Dropped\n (Packets)')
 
 
     colors = ["blue", "red", "green", "black", "brown", "orange", "purple"]

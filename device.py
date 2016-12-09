@@ -337,7 +337,7 @@ class Host(Device):
     def update_flowrate(self, source, time):
         if self.last_flow_check[source] + update_interval < time:
             curr_count = self.flow_count[source]
-            self.graph_flowrate[source].add_point(time, curr_count * 1024.0 / (time - self.last_flow_check[source]))
+            self.graph_flowrate[source].add_point(time, curr_count * 1024 * (8 * 10 ** (-6)) / ((time - self.last_flow_check[source]) / 1000))
             self.flow_count[source] = 0
             self.last_flow_check[source] = time
 

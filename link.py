@@ -63,7 +63,7 @@ class Link:
     def update_linkrate(self, time):
         if self.last_linkrate_check + update_interval < time:
             curr_count = self.linkrate_count
-            self.graph_linkrate.add_point(time, curr_count / (time - self.last_linkrate_check))
+            self.graph_linkrate.add_point(time, curr_count * (8 * 10 ** (-6)) / ((time - self.last_linkrate_check) / 1000))
             self.last_linkrate_check = time
             self.linkrate_count = 0
 
