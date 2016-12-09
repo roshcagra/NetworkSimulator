@@ -136,12 +136,13 @@ class Host(Device):
         packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
-    def start_flow(self, data, destination, env, tcp_type='Reno', gamma=0.5, alpha=15):
+    def start_flow(self, start, data, destination, env, tcp_type='Reno', gamma=0.5, alpha=15):
+        self.num_flows += 1
+        yield env.timeout(start)
         self.graph_wsize[destination] = Graph("Device" + str(self.ip) + " to Device " + str(destination))
         self.graph_delay[destination] = Graph("Device" + str(self.ip) + " to Device " + str(destination))
         self.last_delay_check[destination] = 0
         self.delays[destination] = []
-        self.num_flows += 1
 
         if tcp_type == 'Reno':
             self.tcp_type[destination] = 'Reno'

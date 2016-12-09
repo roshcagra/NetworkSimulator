@@ -4,8 +4,8 @@ import simpy
 
 
 def flow(data, start, source, destination, sim_env, tcp_type, gamma=0.5, alpha=15):
-    yield sim_env.timeout(start)
-    source.start_flow(data=data, destination=destination, env=sim_env, tcp_type=tcp_type, gamma=gamma, alpha=alpha)
+    yield sim_env.timeout(0)
+    sim_env.process(source.start_flow(start=start, data=data, destination=destination, env=sim_env, tcp_type=tcp_type, gamma=gamma, alpha=alpha))
 
 def dynamic_routing(devices, interval, sim_env):
     while True:
