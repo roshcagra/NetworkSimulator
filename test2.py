@@ -14,15 +14,15 @@ Router(ip=8),
 Router(ip=9),]
 
 links = [
-Link(link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
-Link(link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 0, link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 1, link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 3, link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 4, link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 5, link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 6, link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 7, link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 8, link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
+Link(l_id = 9, link_rate=(1562500), link_delay=10, max_buffer_size=128000, env=env),
 ]
 
 

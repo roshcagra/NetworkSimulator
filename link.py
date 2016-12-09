@@ -5,23 +5,33 @@ from packet import RouterPacket
 debug_state = False
 
 class Link:
-    def __init__(self, link_rate, link_delay, max_buffer_size, env):
+    def __init__(self, l_id, link_rate, link_delay, max_buffer_size, env):
         self.devices = {} # ip -> device object
+        self.id = l_id    # for graphing
         self.link_rate = link_rate # aka capacity/transmission delay
         self.link_delay = link_delay # propogation delay
         self.send = simpy.Resource(env, capacity=1)
         self.buffer = simpy.Container(env, init=max_buffer_size, capacity=max_buffer_size)
         self.router_occ_size = 0
         self.last_dest = (-1, 0)
-        self.graph_buffocc = Graph("Buffer Occupancy", "buffocc")
-        self.graph_delay = Graph("Packet Delay", "delay")
-        self.graph_linkrate = Graph("Link Rate", "linkrate")
-        self.graph_dropped = Graph("Packet Loss", "dropped")
+        self.graph_buffocc = Graph("Buffer Occupancy", "buffocc",self.id)
+        self.graph_delay = Graph("Packet Delay", "delay",self.id)
+        self.graph_linkrate = Graph("Link Rate", "linkrate",self.id)
+        self.graph_dropped = Graph("Packet Loss", "dropped",self.id)
         self.current_dropped = 0 # number of packets dropped at this time
         self.last_dropped_time = 0
         self.sum_queued = 0     # number of packets that have ever been queued
         self.sum_queuetime = 0  # sum of all queue wait times
-        self.sum_packets = 0 # sum of sizes of all sent packets
+
+        self.linkrate_interval = 100 # running avg window
+        self.linkrate_start = 0 # abs start time of avg window
+        self.linkrate_count = 0 # total Mb sent in this interval
+        self.linkrate_sum = 0
+
+        self.buffocc_interval = 100 # running avg window
+        self.buffocc_start = 0 # abs start time of avg window
+        self.buffocc_count = 0 # total Mb sent in this interval
+        self.buffocc_sum = 0
 
     def add_device(self, device):
         self.devices[device.ip] = device
@@ -39,13 +49,17 @@ class Link:
 
     def insert_into_buffer(self, packet, packet_size, env):
         # Plot "prev"
-        self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+        #self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+        self.buffocc_sum += self.buffer.capacity - self.buffer.level
+        self.buffocc_count += 1
+
         if packet_size <= self.buffer.level:
             self.buffer.get(packet_size)
             # Buffer++
-            self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
-            self.sum_packets += packet.size
-
+            #self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+            self.buffocc_sum += self.buffer.capacity - self.buffer.level
+            self.buffocc_count += 1
+            
             packet.t_enterbuff = env.now
             if isinstance(packet, RouterPacket):
                 self.router_occ_size += RouterPacket.size
@@ -66,18 +80,47 @@ class Link:
             if ip != source:
                 destination = ip
 
+        # Link rate: graph it once we hit interval
+        if self.linkrate_start + self.linkrate_interval <= env.now:
+            # Passed end of window: plot avg and reset
+            self.graph_linkrate.add_point(env.now,
+                (1.0 * self.linkrate_sum)/max(1.0, self.linkrate_count))
+            self.linkrate_count = 0
+            self.linkrate_sum = 0
+            self.linkrate_start = env.now
+
+        # Buffocc: graph it once we hit interval
+        if self.buffocc_start + self.buffocc_interval <= env.now:
+            # Passed end of window: plot avg and reset
+            self.graph_buffocc.add_point(env.now,
+                (1.0 * self.buffocc_sum)/max(1.0, self.buffocc_count))
+            self.buffocc_count = 0
+            self.buffocc_sum = 0
+            self.buffocc_start = env.now
+
+
         if self.insert_into_buffer(packet, packet.size, env):
             time_enter_queue = env.now
-            # # Buffer++
-            # self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
-            # self.sum_packets += packet.size
+            # Buffer ++
 
             self.graph_dropped.add_point(env.now, self.current_dropped)
             self.current_dropped = 0
             self.graph_dropped.add_point(env.now, self.current_dropped)
 
-            if env.now > 0:
-                self.graph_linkrate.add_point(env.now, self.sum_packets/env.now)
+            # A packet is succesfully put onto link
+            # if self.linkrate_start + self.linkrate_interval > env.now:
+            #     # Still in window: collect data
+            #     self.linkrate_count += packet.size
+            # else:
+            #     # End of window: plot avg and reset
+            #     self.graph_linkrate.add_point(env.now,
+            #         self.linkrate_count/self.linkrate_interval)
+            #     self.linkrate_count = 0
+            #     self.linkrate_start = env.now
+
+            self.linkrate_count += 1 # This many packets travelled on link
+            getonlink = env.now # Time it got onto link
+
             with self.send.request() as req:  # Generate a request event
                 yield req
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
@@ -86,17 +129,28 @@ class Link:
                 yield env.timeout(packet.size/self.link_rate * 1000)
                 # "Prev" buffer
                 if packet.__class__.__name__ == "DataPacket":
-                    self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+                    #self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+                    self.buffocc_sum += self.buffer.capacity - self.buffer.level
+                    self.buffocc_count += 1
 
                 self.remove_from_buffer(packet, packet.size, env)
 
                 # Buffer--
                 if packet.__class__.__name__ == "DataPacket":
-                    self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+                    #self.graph_buffocc.add_point(env.now, self.buffer.capacity - self.buffer.level)
+                    self.buffocc_sum += self.buffer.capacity - self.buffer.level
+                    self.buffocc_count += 1
 
                 self.last_dest = (destination, env.now + self.link_delay)
             yield env.timeout(self.link_delay)
+
             self.graph_delay.add_point(env.now, env.now - time_enter_queue)
+
+            # Link rate
+            getofflink = env.now # Time it got off link
+            traveltime = getofflink - getonlink
+            self.linkrate_sum += (1.0 * packet.size)/traveltime # Travel speed for one packet
+
             self.devices[destination].receive_packet(packet, env)
         else:
             # Dropped packet

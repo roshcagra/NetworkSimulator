@@ -1,7 +1,7 @@
 import simpy
 from device import Host
 from device import Router
-from link2 import Link
+from link import Link
 from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
@@ -16,12 +16,13 @@ Router(ip=2),
 Router(ip=3),
 Router(ip=4),
 Router(ip=5)]
-links = [Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env),
-Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-Link(link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
-Link(link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env)
+links = [
+Link(l_id = 0, link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env),
+Link(l_id = 1, link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+Link(l_id = 2, link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+Link(l_id = 3, link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+Link(l_id = 4, link_rate=(1.25 * 10 ** 6), link_delay=10, max_buffer_size=64000, env=env),
+Link(l_id = 5, link_rate=(1562500), link_delay=10, max_buffer_size=64000, env=env)
 ]
 
 

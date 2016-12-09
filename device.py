@@ -14,12 +14,11 @@ class Device:
     def __init__(self, ip):
         self.ip = ip
         self.links = []
-
-        self.graph_flowrate = Graph("Flow Rate", "flowrate")
-        self.flowinterval = 5
+        self.graph_flowrate = Graph("Flow Rate", "flowrate", self.ip)
+        self.flowinterval = 100
         self.flowcur = 0
         self.flowstart = 0
-        self.graph_wsize = Graph("Window Size", "wsize")
+        self.graph_wsize = Graph("Window Size", "wsize", self.ip)
 
 
     def add_link(self, link):
