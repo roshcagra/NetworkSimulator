@@ -6,7 +6,7 @@ from utils import flow
 from utils import dynamic_routing
 env = simpy.Environment()
 
-data1 = 1024 * 6000
+data1 = 1024 * 4000
 
 # data1 = 1024 * 5000 * 0
 
@@ -74,7 +74,7 @@ devices[5].add_link(links[4])
 devices[5].add_link(links[5])
 
 
-p = env.process(flow(data1, 500, devices[0], 1, env, 'Reno'))
+p = env.process(flow(data1, 500, devices[0], 1, env, 'FAST', 0.5, 15))
 r = env.process(dynamic_routing(devices=devices, interval=5000, sim_env=env))
 
 # events is the list of other processes besides the routing process. once all the events have been processed

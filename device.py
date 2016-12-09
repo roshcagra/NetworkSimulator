@@ -6,7 +6,7 @@ from packet import RouterPacket
 
 from graphing import Graph
 
-debug_state = True
+debug_state = False
 
 aws = float('inf')
 
@@ -132,13 +132,13 @@ class Host(Device):
         packet = DataPacket(p_id=p_id, source=self.ip, destination=destination)
         env.process(self.links[0].send_packet(packet=packet, source=self.ip, env=env))
 
-    def start_flow(self, data, destination, env, tcp_type='Reno'):
+    def start_flow(self, data, destination, env, tcp_type='Reno', gamma=0.5, alpha=15):
         if tcp_type == 'Reno':
             self.tcp_type[destination] = 'Reno'
             env.process(self.start_reno_flow(data, destination, env))
         elif tcp_type == 'FAST':
             self.tcp_type[destination] = 'FAST'
-            env.process(self.start_fast_flow(data, destination, env))
+            env.process(self.start_fast_flow(data, destination, gamma, alpha, env))
 
     def start_reno_flow(self, data, destination, env):
         self.window[destination] = (0, 0)
@@ -158,7 +158,7 @@ class Host(Device):
             self.window[destination] = (self.window[destination][0], window_end_id)
             yield self.flow_reactivate[destination]
 
-    def start_fast_flow(self, data, destination, env):
+    def start_fast_flow(self, data, destination, gamma, alpha, env):
         self.window[destination] = (0, 0)
         self.window_size[destination] = 1
         self.flow_reactivate[destination] = env.event()
@@ -166,7 +166,7 @@ class Host(Device):
         self.send_times[destination] = {}
         self.eof[destination] = math.ceil(data / DataPacket.size) + 1
         self.fast_RTT[destination] = (float('inf'), float('inf'))
-        self.timer[destination] = env.process(self.update_window(destination, env))
+        self.timer[destination] = env.process(self.update_window(destination, gamma, alpha, env))
 
         while not self.window[destination][1] >= self.eof[destination]:
             max_batch_size = int(math.floor(self.window_size[destination]) - self.get_curr_window_length(destination))
@@ -274,16 +274,18 @@ class Host(Device):
             self.flow_reactivate[destination].succeed()
             self.flow_reactivate[destination] = env.event()
 
-    def update_window(self, destination, env):
+    def update_window(self, destination, gamma, alpha, env):
         try:
             while True:
                 yield env.timeout(20)
                 if self.last_acknowledged[destination][0] > 0:
+                    self.graph_wsize.add_point(env.now, self.window_size[destination])
                     (base_rtt, last_rtt) = self.fast_RTT[destination]
+                    print('RTT Frac', base_rtt / last_rtt)
                     curr_wsize = self.window_size[destination]
-                    g = 0.05
-                    a = 10
-                    self.window_size[destination] = min(2 * curr_wsize, (1 - g) * curr_wsize + g * ((base_rtt / last_rtt) * curr_wsize + a))
+                    self.window_size[destination] = min(2 * curr_wsize, (1 - gamma) * curr_wsize + gamma * ((base_rtt / last_rtt) * curr_wsize + alpha))
+                    print('New Window Size', self.window_size[destination])
+                    self.graph_wsize.add_point(env.now, self.window_size[destination])
                 if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
                     self.flow_reactivate[destination].succeed()
                     self.flow_reactivate[destination] = env.event()
@@ -302,8 +304,6 @@ class Host(Device):
             self.end_flow(destination, env)
             return
 
-        self.graph_wsize.add_point(env.now, self.window_size[destination])
-
         if (self.last_acknowledged[destination][0] == packet_id - 1) and (packet_id - 1) in self.send_times[destination]:
             self.update_rtt(self.send_times[destination][packet_id - 1], env.now, destination)
 
@@ -316,10 +316,9 @@ class Host(Device):
                 if debug_state:
                     print('Duplicate acks received. Retransmitting and resetting.')
                 self.window_size[destination] = 1
+                self.graph_wsize.add_point(env.now, self.window_size[destination])
                 self.window[destination] = (packet_id, packet_id + 1)
                 self.retransmit(destination, env)
-
-        self.graph_wsize.add_point(env.now, self.window_size[destination])
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
