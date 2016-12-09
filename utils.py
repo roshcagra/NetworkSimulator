@@ -29,18 +29,18 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
     plt.ion()
 
     axes = {}
-    axes["wsize"] = fig.add_subplot(6,1,1)
+    axes["wsize"] = fig.add_subplot(6,1,5)
     axes["wsize"].set_ylabel('Window Size\n (Packets)')
-    axes["flowrate"] = fig.add_subplot(6,1,2)
+    axes["flowrate"] = fig.add_subplot(6,1,4)
     axes["flowrate"].set_ylabel('Flow Rate\n (Mbps)')
-    axes["buffocc"] = fig.add_subplot(6,1,6)
+    axes["buffocc"] = fig.add_subplot(6,1,2)
     axes["buffocc"].set_ylabel('Buffer Occupancy\n (Bytes)')
-    axes["delay"] = fig.add_subplot(6,1,3)
+    axes["delay"] = fig.add_subplot(6,1,6)
     axes["delay"].set_ylabel('Packet Delay\n (ms)')
-    axes["linkrate"] = fig.add_subplot(6,1,4)
+    axes["linkrate"] = fig.add_subplot(6,1,1)
     axes["linkrate"].set_ylabel('Link Rate\n (Mbps)')
-    axes["dropped"] = fig.add_subplot(6,1,5)
-    axes["dropped"].set_ylabel('Packets Dropped\n (Packets)')
+    axes["dropped"] = fig.add_subplot(6,1,3)
+    axes["dropped"].set_ylabel('Packet Loss\n (Packets)')
 
 
     colors = ["blue", "red", "green", "black", "brown", "orange", "purple"]
@@ -49,6 +49,8 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
         yield env.timeout(1000)
         wsize_legend = []
         flowrate_legend = []
+        delay_legend = []
+        max_delay = 0
         for device in devices:
             if device.ip not in hosts_to_graph:
                 continue
@@ -57,6 +59,12 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
                     curr_wsize_graph = device.graph_wsize[destination]
                     axes["wsize"].plot(curr_wsize_graph.times, curr_wsize_graph.vals, color=colors[device.ip])
                     wsize_legend.append(curr_wsize_graph.title)
+                for destination in device.graph_delay:
+                    curr_delay_graph = device.graph_delay[destination]
+                    axes["delay"].plot(curr_delay_graph.times, curr_delay_graph.vals, color=colors[device.ip])
+                    if len(curr_delay_graph.vals) > 0:
+                        max_delay = max(max_delay, max(curr_delay_graph.vals))
+                    delay_legend.append(curr_delay_graph.title)
                 for source in device.graph_flowrate:
                     curr_flowrate_graph = device.graph_flowrate[source]
                     axes["flowrate"].plot(curr_flowrate_graph.times, curr_flowrate_graph.vals, color=colors[device.ip])
@@ -64,9 +72,10 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
 
         axes["wsize"].legend(wsize_legend)
         axes["flowrate"].legend(flowrate_legend)
+        axes["delay"].legend(delay_legend)
+        axes["delay"].set_ylim(0, max(max_delay, 1) + 5)
 
         buffocc_legend = []
-        delay_legend = []
         dropped_legend = []
         linkrate_legend = []
         for link in links:
@@ -75,10 +84,6 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
             curr_graph = link.graph_buffocc
             axes["buffocc"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id])
             buffocc_legend.append(curr_graph.title)
-
-            curr_graph = link.graph_delay
-            axes["delay"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id])
-            delay_legend.append(curr_graph.title)
 
             curr_graph = link.graph_linkrate
             axes["linkrate"].plot(curr_graph.times, curr_graph.vals, color=colors[link.id])
@@ -89,7 +94,6 @@ def graph_live(devices, links, hosts_to_graph, links_to_graph, env):
             dropped_legend.append(curr_graph.title)
 
         axes["buffocc"].legend(buffocc_legend)
-        axes["delay"].legend(delay_legend)
         axes["linkrate"].legend(linkrate_legend)
         axes["dropped"].legend(dropped_legend)
 

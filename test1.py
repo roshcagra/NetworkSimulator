@@ -7,7 +7,7 @@ from utils import dynamic_routing
 from utils import graph_live
 env = simpy.Environment()
 
-data1 = 1024 * 20000
+data1 = 20 * 10 ** 6
 
 # data1 = 1024 * 5000 * 0
 

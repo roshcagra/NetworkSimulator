@@ -20,10 +20,6 @@ class Link:
         self.last_buff_occ_check = 0
         self.buffer_sizes = []
 
-        self.graph_delay = Graph("Link" + str(self.id))
-        self.last_delay_time_check = 0
-        self.delay_times = []
-
         self.graph_dropped = Graph("Link" + str(self.id))
         self.current_dropped = 0 # number of packets dropped at this time
         self.last_dropped_time = 0
@@ -52,13 +48,6 @@ class Link:
             self.graph_buffocc.add_point(time, buffer_average)
             self.last_buff_occ_check = time
             self.buffer_sizes = []
-
-    def update_delay_times(self, time):
-        if self.last_delay_time_check + update_interval < time:
-            delay_average = sum(self.delay_times) / len(self.delay_times)
-            self.graph_delay.add_point(time, delay_average)
-            self.last_delay_time_check = time
-            self.delay_times = []
 
     def update_linkrate(self, time):
         if self.last_linkrate_check + update_interval < time:
@@ -93,17 +82,12 @@ class Link:
                 destination = ip
 
         if self.insert_into_buffer(packet, packet.size, env):
-            time_enter_queue = env.now
-
             self.graph_dropped.add_point(env.now, self.current_dropped)
             self.current_dropped = 0
             self.graph_dropped.add_point(env.now, self.current_dropped)
 
             with self.send.request() as req:  # Generate a request event
                 yield req
-
-                self.delay_times.append(env.now - time_enter_queue)
-                self.update_delay_times(env.now)
 
                 if self.last_dest[0] != destination and self.last_dest[0] != -1:
                     next_time = self.last_dest[1]

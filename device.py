@@ -106,11 +106,17 @@ class Host(Device):
         self.timeout_clock = {}
         # FAST TCP
         self.fast_RTT = {}
+        self.last_new = {}
 
         self.graph_wsize = {}
+
         self.graph_flowrate = {}
         self.last_flow_check = {}
         self.flow_count = {}
+
+        self.graph_delay= {}
+        self.last_delay_check = {}
+        self.delays = {}
 
         self.received = {}
 
@@ -129,6 +135,9 @@ class Host(Device):
 
     def start_flow(self, data, destination, env, tcp_type='Reno', gamma=0.5, alpha=15):
         self.graph_wsize[destination] = Graph("Device" + str(self.ip) + " to Device " + str(destination))
+        self.graph_delay[destination] = Graph("Device" + str(self.ip) + " to Device " + str(destination))
+        self.last_delay_check[destination] = 0
+        self.delays[destination] = []
 
         if tcp_type == 'Reno':
             self.tcp_type[destination] = 'Reno'
@@ -164,6 +173,7 @@ class Host(Device):
         self.eof[destination] = math.ceil(data / DataPacket.size) + 1
         self.fast_RTT[destination] = (float('inf'), float('inf'))
         self.timer[destination] = env.process(self.update_window(destination, gamma, alpha, env))
+        self.last_new[destination] = env.now
 
         while not self.window[destination][1] >= self.eof[destination]:
             max_batch_size = int(math.floor(self.window_size[destination]) - self.get_curr_window_length(destination))
@@ -188,8 +198,19 @@ class Host(Device):
         deviation_n = self.timeout_clock[destination][1]
         return arrival_n + 4 * max(deviation_n, 1)
 
+    def update_delay_times(self, destination, time):
+        if self.last_delay_check[destination] + update_interval < time:
+            curr_delays = self.delays[destination]
+            delay_average = sum(curr_delays) / len(curr_delays)
+            self.graph_delay[destination].add_point(time, delay_average)
+            self.delays[destination] = []
+            self.last_delay_check[destination] = time
+
     def update_timeout_clock(self, send_time, arrival_time, destination):
         travel_time = arrival_time - send_time
+        self.delays[destination].append(travel_time)
+        self.update_delay_times(destination, arrival_time)
+
         if destination not in self.timeout_clock:
             self.timeout_clock[destination] = (travel_time, travel_time / 2)
             return
@@ -206,7 +227,7 @@ class Host(Device):
         try:
             yield env.timeout(self.get_timeout(destination) * try_number)
             if debug_state:
-                print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and reseting timer.')
+                print('Time', env.now, 'Timeout occurred. Sending last unacknowledged packet and resetting timer.')
             self.ss_thresh[destination] = math.floor(self.window_size[destination] / 2)
             self.graph_wsize[destination].add_point(env.now, self.window_size[destination])
             self.retransmit(destination, env)
@@ -292,6 +313,9 @@ class Host(Device):
 
     def update_rtt(self, send_time, arrival_time, destination):
         new_RTT = arrival_time - send_time
+        self.delays[destination].append(new_RTT)
+        self.update_delay_times(destination, arrival_time)
+
         new_base_RTT = min(self.fast_RTT[destination][0], new_RTT)
         self.fast_RTT[destination] = (new_base_RTT, new_RTT)
 
@@ -306,8 +330,17 @@ class Host(Device):
             self.update_rtt(self.send_times[destination][packet_id - 1], env.now, destination)
 
         if self.last_acknowledged[destination][0] < packet_id:
+            self.last_new[destination] = env.now
             self.window[destination] = (packet_id, max(self.window[destination][1], packet_id))
             self.last_acknowledged[destination] = (packet_id, 1)
+        elif self.last_acknowledged[destination][0] == packet_id:
+            self.last_acknowledged[destination] = (packet_id, self.last_acknowledged[destination][1] + 1)
+            if self.last_acknowledged[destination][1] == 4:
+                if debug_state:
+                    print('Duplicate Acks received. Resetting and Retransmitting')
+                self.retransmit(destination, env)
+                self.window_size[destination] = 1
+                self.fast_RTT[destination] = (float('inf'), float('inf'))
 
         if self.get_curr_window_length(destination) < math.floor(self.window_size[destination]):
             self.flow_reactivate[destination].succeed()
@@ -366,7 +399,6 @@ class Host(Device):
     def receive_packet(self, packet, env):
         if debug_state and not isinstance(packet, RouterPacket):
             print('Time', env.now, 'Host received', packet.__class__.__name__, packet.id, 'from Device', packet.source)
-
 
         if isinstance(packet, DataPacket):
             self.receive_data(packet, env)
